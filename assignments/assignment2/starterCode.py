@@ -11,14 +11,15 @@ R = np.zeros((n_states, n_actions))
 P = np.zeros((n_states, n_actions, n_states))
 T = np.zeros((n_states, n_actions))
 
-env.reset()
-for s in range(n_states):
-    for a in range(n_actions):
-        env.set_state(s)
-        s_next, r, terminated, _, _ = env.step(a)
-        R[s, a] = r
-        P[s, a, s_next] = 1.0
-        T[s, a] = terminated
+def compute_matrices():
+    env.reset()
+    for s in range(n_states):
+        for a in range(n_actions):
+            env.set_state(s)
+            s_next, r, terminated, _, _ = env.step(a)
+            R[s, a] = r
+            P[s, a, s_next] = 1.0
+            T[s, a] = terminated
 
 
 def bellman_v(**kwargs):
@@ -28,14 +29,17 @@ def bellman_v(**kwargs):
 
     # We can just set an arbitrary algorithm parameter here because I can and Adrian can't stop me
     THETA = 0.001
-    delta = 1
+    delta = 0.002
 
     # Make a dummy policy for now so my smoll brain can figure this out
     pi = np.zeros((n_states, n_actions))
 
     # initialize value function approximation
     vk = [initial_value] * n_states
-    vk1 = [initial_value] * n_states
+    vk1 = [0] * n_states
+
+    # initalize bellman error array
+    bellman_errors = []
 
     # loop for every state
     while delta > THETA:
@@ -55,9 +59,17 @@ def bellman_v(**kwargs):
                     # Now we can finally just do our value update
                     reward = R[state_prime, action]
                     value += action_prob * dynamics_prob (reward + (gamma * vk[state_prime]))
-
-
+            vk1[state] = value
+            delta = max(delta, abs(vk[state] - vk1[state]))
+        error = 0
+        for vs, vs1 in zip(vk, vk1) :
+            error += abs(vs - vs1)
+        bellman_errors.append(error)
+        # copy over to vk array
+        for state in range(n_states):
+            vk[state] = vk1[state]
     return 0
+
 
 # def bellman_q(**kwargs):
 #     return
@@ -82,3 +94,8 @@ def bellman_v(**kwargs):
 #         axs[0][i].set_title(f'$\gamma$ = {gamma}')
 #
 #     plt.show()
+
+if __name__ == '__main__':
+    compute_matrices()
+    # setup what the policy is we want to run
+    policy = []
