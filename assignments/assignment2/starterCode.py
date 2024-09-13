@@ -15,7 +15,7 @@ T = np.zeros((n_states, n_actions))
 policy = np.zeros((n_states, n_actions))
 
 # We can just set an arbitrary algorithm parameter here because I can and Adrian can't stop me
-THETA = 0.0001
+THETA = 0.05
 def compute_matrices():
     env.reset()
     for s in range(n_states):
@@ -50,16 +50,19 @@ def bellman_v(**kwargs):
             for action in range(n_actions):
                 # probability of choosing this action with our policy (this is the sum)
                 action_prob = policy[state, action]
-                if action_prob == 0:
-                    continue
+                # if action_prob == 0:
+                #     continue
                 # otherwise
                 for state_prime in range(n_states):
                     dynamics_prob = P[state, action, state_prime]
-                    if dynamics_prob == 0:
-                        continue
+                    # if dynamics_prob == 0:
+                    #     continue
                     # Now we can finally just do our value update
                     reward = R[state, action]
-                    value += (action_prob * dynamics_prob * (reward + (gamma * vk[state_prime])))
+                    value_of_s_prime = vk[state_prime]
+                    if T[state, action] == 1:
+                        value_of_s_prime = 0
+                    value += (action_prob * dynamics_prob * (reward + (gamma * value_of_s_prime)))
             vk1[state] = value
             delta = max(delta, abs(vk[state] - vk1[state]))
         error = 0
@@ -70,6 +73,30 @@ def bellman_v(**kwargs):
         for state in range(n_states):
             vk[state] = vk1[state]
     return {"values": vk1, "bellman_errors": bellman_errors}
+
+def bellman_v2(**kwargs):
+    gamma = kwargs.get("gamma", 1)
+    initial_value = kwargs.get("initial_value", 0)
+
+    delta = THETA + 1
+    vs = [initial_value] * n_states
+    while delta >= THETA:
+        delta = 0
+        for state in range(n_states):
+            value = vs[state]
+            update_value = 0
+            for action in range(n_actions):
+                action_prob = policy[state, action]
+                for state_prime in range(n_states):
+                    dynamics_prob = P[state, action, state_prime]
+                    reward = R[state, action]
+                    next_state_value = 0 if T[state, action] == 1 else vs[state_prime]
+                    update_value += action_prob * dynamics_prob * (reward + (gamma * next_state_value))
+            vs[state] = update_value
+            delta = max(delta, abs(value - vs[state]))
+
+    print(vs)
+
 
 
 def bellman_q(**kwargs):
@@ -137,6 +164,8 @@ if __name__ == '__main__':
 
     # Setup our optimal
     policy[0, 1] = 1.0
+    policy[1, 2] = 1.0
+    policy[4, 2] = 1.0
     policy[3, 1] = 1.0
     policy[6, 2] = 1.0
     policy[7, 2] = 1.0
