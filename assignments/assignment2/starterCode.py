@@ -16,6 +16,7 @@ policy = np.zeros((n_states, n_actions))
 
 # We can just set an arbitrary algorithm parameter here because I can and Adrian can't stop me
 THETA = 0.05
+
 def compute_matrices():
     env.reset()
     for s in range(n_states):
@@ -50,23 +51,27 @@ def bellman_v(**kwargs):
             for action in range(n_actions):
                 # probability of choosing this action with our policy (this is the sum)
                 action_prob = policy[state, action]
-                # if action_prob == 0:
-                #     continue
+                if action_prob == 0:
+                    continue
                 # otherwise
                 for state_prime in range(n_states):
                     dynamics_prob = P[state, action, state_prime]
-                    # if dynamics_prob == 0:
-                    #     continue
+                    if dynamics_prob == 0:
+                        continue
                     # Now we can finally just do our value update
                     reward = R[state, action]
                     value_of_s_prime = vk[state_prime]
                     if T[state, action] == 1:
                         value_of_s_prime = 0
-                    value += (action_prob * dynamics_prob * (reward + (gamma * value_of_s_prime)))
+                    value += (
+                        action_prob
+                        * dynamics_prob
+                        * (reward + (gamma * value_of_s_prime))
+                    )
             vk1[state] = value
             delta = max(delta, abs(vk[state] - vk1[state]))
         error = 0
-        for vs, vs1 in zip(vk, vk1) :
+        for vs, vs1 in zip(vk, vk1):
             error += abs(vs - vs1)
         bellman_errors.append(error)
         # copy over to vk array
@@ -74,32 +79,8 @@ def bellman_v(**kwargs):
             vk[state] = vk1[state]
     return {"values": vk1, "bellman_errors": bellman_errors}
 
-def bellman_v2(**kwargs):
-    gamma = kwargs.get("gamma", 1)
-    initial_value = kwargs.get("initial_value", 0)
 
-    delta = THETA + 1
-    vs = [initial_value] * n_states
-    while delta >= THETA:
-        delta = 0
-        for state in range(n_states):
-            value = vs[state]
-            update_value = 0
-            for action in range(n_actions):
-                action_prob = policy[state, action]
-                for state_prime in range(n_states):
-                    dynamics_prob = P[state, action, state_prime]
-                    reward = R[state, action]
-                    next_state_value = 0 if T[state, action] == 1 else vs[state_prime]
-                    update_value += action_prob * dynamics_prob * (reward + (gamma * next_state_value))
-            vs[state] = update_value
-            delta = max(delta, abs(value - vs[state]))
-
-    print(vs)
-
-
-
-def bellman_q(**kwargs):
+def bellman_q_old(**kwargs):
     # Get the values we need from good ol kwargs
     gamma = kwargs.get("gamma", 1)
     initial_value = kwargs.get("initial_value", 0)
@@ -110,11 +91,10 @@ def bellman_q(**kwargs):
     qk = np.full((n_states, n_actions), initial_value)
     qk1 = np.zeros((n_states, n_actions))
 
-    bellman_errors = [[], [], [], [], []]
+    bellman_errors = []
 
     while delta > THETA:
         delta = 0
-        value = 0
         # Here we do state action pairs to start, so we immediately loop through all state action pairs
         for state in range(n_states):
             for action in range(n_actions):
@@ -125,41 +105,95 @@ def bellman_q(**kwargs):
                         continue
                     reward = R[state, action]
                     inner_sum = 0
-                    for action_prime in range(n_actions):
-                        action_prob = policy[state_prime, action_prime]
-                        if action_prob == 0:
-                            continue
-                        inner_sum += action_prob * qk[state_prime, action_prime]
+                    # Account for terminal state
+                    if T[state, action] != 1:
+                        for action_prime in range(n_actions):
+                            action_prob = policy[state_prime, action_prime]
+                            if action_prob == 0:
+                                continue
+                            inner_sum += (action_prob * qk[state_prime, action_prime])
                     value += dynamics_prob * (reward + (gamma * inner_sum))
                 qk1[state, action] = value
                 delta = max(delta, abs(qk[state, action] - qk1[state, action]))
-    return
+        error = 0
+        # Compute the bellman error for this iteration
+        for state in range(n_states):
+            for action in range(n_actions):
+                error += abs(qk1[state, action] - qk[state, action])
+        bellman_errors.append(error)
+        # Update qk to be qk1
+        for state in range(n_states):
+            for action in range(n_actions):
+                qk[state, action] = qk1[state, action]
+    return {"values": qk1, "bellman_errors": bellman_errors}
+
+def bellman_q(**kwargs):
+    # Get the values we need from good ol kwargs
+    gamma = kwargs.get("gamma", 1)
+    initial_value = kwargs.get("initial_value", 0)
+
+    delta = THETA + 1
+
+    # initialize q function approximations
+    qk = np.full((n_states, n_actions), initial_value)
+    qk1 = np.full((n_states, n_actions), initial_value)
+
+    bellman_errors = []
+
+    while delta > THETA:
+        delta = 0
+        for state in range(n_states):
+            for action in range(n_actions):
+                value = 0
+                for state_prime in range(n_states):
+                    dynamics_prob = P[state, action, state_prime]
+                    # if dynamics_prob == 0:
+                    #     continue
+                    reward = R[state, action]
+                    inner_sum = 0
+                    if T[state, action] != 1:
+                        for action_prime in range(n_actions):
+                            action_prob = policy[state_prime, action_prime]
+                            # if action_prob == 0:
+                            #     continue
+                            inner_sum += (action_prob * qk[state_prime, action_prime])
+                    value += dynamics_prob * (reward + (gamma * inner_sum))
+                qk1[state, action] = value
+                delta = max(delta, abs(qk[state, action] - qk1[state, action]))
+        print(delta)
+        for state in range(n_states):
+            for action in range(n_actions):
+                qk[state, action] = qk1[state, action]
+    return {"values": qk1}
 
 def plot_graphs():
     gammas = [0.01, 0.5, 0.99, 0.9]
-    for init_value in [-10, 0, 10]:
+    # gammas = [0.5, 0.9]
+    for init_value in [ 10]:
         fig, axs = plt.subplots(2, len(gammas))
         fig.suptitle(f"$V_0$: {init_value}")
         for i, gamma in enumerate(gammas):
             results = bellman_v(gamma=gamma, initial_value=init_value)
-            values = np.array(results['values']).reshape(3, 3)
-            errors = results['bellman_errors']
+            values = np.array(results["values"]).reshape(3, 3)
+            errors = results["bellman_errors"]
             axs[0][i].imshow(values)
             axs[1][i].plot(range(len(errors)), errors)
-            axs[0][i].set_title(f'$\gamma$ = {gamma}')
+            axs[0][i].set_title(f"$\gamma$ = {gamma}")
 
-        # fig, axs = plt.subplots(n_actions + 1, len(gammas))
-        # fig.suptitle(f"$Q_0$: {init_value}")
-        # for i, gamma in enumerate(gammas):
-        #     ... = bellman_q(...)
-        #     for a in range(n_actions):
-        #         axs[a][i].imshow(...)
-        #     axs[-1][i].plot(...)
-        #     axs[0][i].set_title(f'$\gamma$ = {gamma}')
+        fig, axs = plt.subplots(n_actions + 1, len(gammas))
+        fig.suptitle(f"$Q_0$: {init_value}")
+        for i, gamma in enumerate(gammas):
+            results = bellman_q(gamma=gamma, initial_value=init_value)
+            for a in range(n_actions):
+                values = results["values"][:, a].reshape(3, 3)
+                axs[a][i].imshow(values)
+            # axs[-1][i].plot(...)
+            axs[0][i].set_title(f'$\gamma$ = {gamma}')
 
         plt.show()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     compute_matrices()
 
     # Setup our optimal
