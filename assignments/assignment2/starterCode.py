@@ -147,29 +147,32 @@ def bellman_q(**kwargs):
                 value = 0
                 for state_prime in range(n_states):
                     dynamics_prob = P[state, action, state_prime]
-                    # if dynamics_prob == 0:
-                    #     continue
+                    if dynamics_prob == 0:
+                        continue
                     reward = R[state, action]
                     inner_sum = 0
                     if T[state, action] != 1:
                         for action_prime in range(n_actions):
                             action_prob = policy[state_prime, action_prime]
-                            # if action_prob == 0:
-                            #     continue
+                            if action_prob == 0:
+                                continue
                             inner_sum += (action_prob * qk[state_prime, action_prime])
                     value += dynamics_prob * (reward + (gamma * inner_sum))
                 qk1[state, action] = value
                 delta = max(delta, abs(qk[state, action] - qk1[state, action]))
-        print(delta)
+        error = 0
+        for state in range(n_states):
+            for action in range(n_actions):
+                error += abs(qk1[state, action] - qk[state, action])
+        bellman_errors.append(error)
         for state in range(n_states):
             for action in range(n_actions):
                 qk[state, action] = qk1[state, action]
-    return {"values": qk1}
+    return {"values": qk1, "bellman_errors": bellman_errors}
 
 def plot_graphs():
-    gammas = [0.01, 0.5, 0.99, 0.9]
-    # gammas = [0.5, 0.9]
-    for init_value in [ 10]:
+    gammas = [0.01, 0.5, 0.99]
+    for init_value in [-10, 0, 10]:
         fig, axs = plt.subplots(2, len(gammas))
         fig.suptitle(f"$V_0$: {init_value}")
         for i, gamma in enumerate(gammas):
@@ -187,7 +190,8 @@ def plot_graphs():
             for a in range(n_actions):
                 values = results["values"][:, a].reshape(3, 3)
                 axs[a][i].imshow(values)
-            # axs[-1][i].plot(...)
+            errors = results["bellman_errors"]
+            axs[-1][i].plot(range(len(errors)), errors)
             axs[0][i].set_title(f'$\gamma$ = {gamma}')
 
         plt.show()
