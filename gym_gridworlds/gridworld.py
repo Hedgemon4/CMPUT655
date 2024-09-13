@@ -443,7 +443,9 @@ class Gridworld(gym.Env):
                                 tuple(cs / grain for cs in t_size),
                             )
                             rnd_color = self.np_random.random(3) * 255
-                            rnd_color = [(rnd_color * (0.2989, 0.5870, 0.1140)).sum()] * 3  # grayscale
+                            rnd_color = [
+                                (rnd_color * (0.2989, 0.5870, 0.1140)).sum()
+                            ] * 3  # grayscale
                             pygame.draw.rect(self.window_surface, rnd_color, rect)
                     continue
 
