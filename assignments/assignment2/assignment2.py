@@ -155,7 +155,7 @@ def plot_graphs():
 if __name__ == "__main__":
     compute_matrices()
 
-    # Setup our optimal
+    # Setup our optimal policy
     policy[0, 1] = 1.0
     policy[1, 2] = 1.0
     policy[4, 2] = 1.0
