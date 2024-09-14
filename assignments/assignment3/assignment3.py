@@ -11,8 +11,8 @@ R = np.zeros((n_states, n_actions))
 P = np.zeros((n_states, n_actions, n_states))
 T = np.zeros((n_states, n_actions))
 
-# THETA = 0.00001
-THETA = 0.05
+THETA = 0.00001
+# THETA = 0.05
 
 # define the optimal policy
 pi_opt = np.zeros((n_states, n_actions))
@@ -80,13 +80,17 @@ def policy_evaluation(**kwargs):
     gamma = kwargs.get("gamma", 1)
     policy = kwargs.get("policy", np.zeros((n_states, n_actions)))
     bellman_errors = kwargs.get("bellman_errors", [])
+    early_exit = kwargs.get("early_exit", 0)
     vk = kwargs.get("vk", [0] * n_states)
     vk1 = [item for item in vk]
 
     delta = THETA + 1
 
     # loop for every state
-    while delta > THETA:
+    num_iterations = 0
+    while delta >= THETA:
+        if 0 < early_exit <= num_iterations:
+            break
         delta = 0
         for state in range(n_states):
             # perform our bellman update on vk1
@@ -120,6 +124,7 @@ def policy_evaluation(**kwargs):
         # copy over to vk array
         for state in range(n_states):
             vk[state] = vk1[state]
+        num_iterations += 1
     return {"values": vk, "bellman_errors": bellman_errors}
 
 
@@ -143,7 +148,21 @@ def policy_iteration(**kwargs):
 
 
 def generalized_policy_iteration(**kwargs):
-    return
+    gamma = kwargs.get("gamma", 1)
+    policy = kwargs.get("policy", np.full((n_states, n_actions), 0.2))
+    initial_value = kwargs.get("initial_value", 0)
+    vs = [initial_value] * n_states
+
+    policy_stable = False
+    total_iterations = 0
+    bellman_errors = []
+    while not policy_stable:
+        # Policy Evaluation
+        vs = policy_evaluation(gamma=gamma, policy=policy, vk=vs, bellman_errors=bellman_errors, early_exit=5)["values"]
+        # Policy Improvement
+        policy_stable, policy = policy_improvement(gamma=gamma, policy=policy, vs=vs).values()
+        total_iterations += 1
+    return policy, total_iterations, bellman_errors
 
 
 def value_iteration(**kwargs):
@@ -175,7 +194,7 @@ def value_iteration(**kwargs):
                     if T[state, action] == 1:
                         value_of_s_prime = 0
                     value += dynamics_prob * (reward + (gamma * value_of_s_prime))
-                if action == 0 or value > max_value:
+                if action == 0 or value >= max_value:
                     max_value = value
             vk1[state] = max_value
             delta = max(delta, abs(vk[state] - vk1[state]))
@@ -207,7 +226,7 @@ def value_iteration(**kwargs):
                 value += dynamics_prob * (reward + (gamma * value_of_s_prime))
             if action == 0:
                 max_value = value
-            elif value > max_value:
+            elif value >= max_value:
                 best_action = action
                 max_value = value
         policy[state, best_action] = 1.0
@@ -223,21 +242,25 @@ def plot_graphs():
     for i, init_value in enumerate(initial_values):
         axs[0][i].set_title(f"$V_0$ = {init_value}")
 
+        # VI
         pi, tot_iter, be = value_iteration(gamma=gamma, initial_value=init_value)
         tot_iter_table[0, i] = tot_iter
         assert np.allclose(pi, pi_opt)
         axs[0][i].plot(range(len(be)), be)
-        #
+
+        # PI
         pi = np.full((n_states, n_actions), 0.2)
         pi, tot_iter, be = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
         tot_iter_table[1, i] = tot_iter
         assert np.allclose(pi, pi_opt)
         axs[1][i].plot(range(len(be)), be)
-        #
-        # pi, tot_iter, be = generalized_policy_iteration(...)
-        # tot_iter_table[2, i] = tot_iter
-        # assert np.allclose(pi, pi_opt)
-        # axs[2][i].plot(...)
+
+        # GPI
+        pi = np.full((n_states, n_actions), 0.2)
+        pi, tot_iter, be = generalized_policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        tot_iter_table[2, i] = tot_iter
+        assert np.allclose(pi, pi_opt)
+        axs[2][i].plot(range(len(be)), be)
 
         # if i == 0:
         #     axs[0][i].set_ylabel("VI")
