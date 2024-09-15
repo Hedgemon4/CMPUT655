@@ -39,252 +39,19 @@ def compute_matrices():
             P[s, a, s_next] = 1.0
             T[s, a] = terminated
 
-# def policy_improvement(**kwargs):
-#     policy = kwargs['policy']
-#     qk = kwargs['qk']
-#     improved_policy = np.zeros(policy.shape)
-#     for state in range(n_states):
-#         max_value = 0
-#         best_action = 0
-#         for action in range(n_actions):
-#             value = qk[state, action]
-#             if action == 0 or value > max_value:
-#                 max_value = value
-#                 best_action = action
-#         improved_policy[state, best_action] = 1.0
-#     policy_stable = np.array_equal(improved_policy, policy)
-#     return {"isStable": policy_stable, "betterPolicy": improved_policy}
-
-# def policy_improvement(**kwargs):
-#     policy = kwargs['policy']
-#     qk = kwargs['qk']
-#     improved_policy = np.zeros(policy.shape)
-#     deterministic = True
-#     for state in range(n_states):
-#         values = []
-#         for action in range(n_actions):
-#             values.append(qk[state, action])
-#         max_value = max(values)
-#         indicies_of_max = [index for index, value in enumerate(values) if value == max_value]
-#         probability = 1.0 / len(indicies_of_max)
-#
-#         if len(indicies_of_max) > 1:
-#             deterministic = False
-#
-#         for index in indicies_of_max:
-#             improved_policy[state, index] = probability
-#     policy_stable = np.array_equal(improved_policy, policy) and deterministic
-#     return {"isStable": policy_stable, "betterPolicy": improved_policy}
-
-# def policy_improvement(**kwargs):
-#     policy = kwargs['policy']
-#     gamma = kwargs['gamma']
-#     qk = kwargs['qk']
-#     improved_policy = np.zeros(policy.shape)
-#     policy_stable = False
-
-    # Improve policy
-    # policy_stable = False
-    # for state in range(n_states):
-    #     max_value = 0
-    #     best_action = 0
-    #     for action in range(n_actions):
-    #         value = 0
-    #         for state_prime in range(n_states):
-    #             dynamics_prob = P[state, action, state_prime]
-    #             if dynamics_prob == 0:
-    #                 continue
-    #             reward = R[state, action]
-    #             value_of_s_prime = vs[state_prime]
-    #             if T[state, action] == 1:
-    #                 value_of_s_prime = 0
-    #             value += dynamics_prob * (reward + (gamma * value_of_s_prime))
-    #         if action == 0:
-    #             max_value = value
-    #         elif value >= max_value:
-    #             best_action = action
-    #             max_value = value
-    #
-    #     improved_policy[state, best_action] = 1.0
-
-    # for state in range(n_states):
-    #     max_value = 0
-    #     best_action = 0
-    #     for action in range(n_actions):
-    #         value = 0
-    #         for state_prime in range(n_states):
-    #             dynamics_prob = P[state, action, state_prime]
-    #             if dynamics_prob == 0:
-    #                 continue
-    #             reward = R[state, action]
-    #             inner_sum = 0
-    #             if T[state, action] != 1:
-    #                 for action_prime in range(n_actions):
-    #                     action_prob = policy[state_prime, action_prime]
-    #                     if action_prob == 0:
-    #                         continue
-    #                     inner_sum += action_prob * qk[state_prime, action_prime]
-    #             value += dynamics_prob * (reward + (gamma * inner_sum))
-    #         if action == 0:
-    #             max_value = value
-    #         elif value >= max_value:
-    #             best_action = action
-    #             max_value = value
-    #     improved_policy[state, best_action] = 1.0
-    # if np.array_equal(improved_policy, policy):
-    #     policy_stable = True
-    # return {"isStable": policy_stable, "betterPolicy": improved_policy}
-    #
-
-# def policy_improvement(**kwargs):
-
-# def policy_evaluation(**kwargs):
-#     gamma = kwargs.get("gamma", 1)
-#     initial_value = kwargs.get("initial_value", 0)
-#     max_iterations = kwargs.get("max_iterations", 100000000)
-#     policy = kwargs.get("policy", np.zeros((n_states, n_actions)))
-#     bellman_errors = kwargs.get("bellman_errors", [])
-#     qk = kwargs.get("qk", np.zeros((n_states, n_actions)))
-#     qk1 = qk.copy()
-#
-#     delta = THETA + 1
-#
-#     iterations = 0
-#     while delta > THETA and iterations < max_iterations:
-#         delta = 0
-#         for state in range(n_states):
-#             for action in range(n_actions):
-#                 value = 0
-#                 for state_prime in range(n_states):
-#                     dynamics_prob = P[state, action, state_prime]
-#                     # if dynamics_prob == 0:
-#                     #     continue
-#                     reward = R[state, action]
-#                     inner_sum = 0
-#                     if T[state, action] != 1:
-#                         for action_prime in range(n_actions):
-#                             action_prob = policy[state_prime, action_prime]
-#                             # if action_prob == 0:
-#                             #     continue
-#                             inner_sum += action_prob * qk[state_prime, action_prime]
-#                     value += dynamics_prob * (reward + (gamma * inner_sum))
-#                 qk1[state, action] = value
-#                 delta = max(delta, abs(qk[state, action] - qk1[state, action]))
-#         error = 0
-#         for state in range(n_states):
-#             for action in range(n_actions):
-#                 error += abs(qk1[state, action] - qk[state, action])
-#         bellman_errors.append(error)
-#         for state in range(n_states):
-#             for action in range(n_actions):
-#                 qk[state, action] = qk1[state, action]
-#         iterations += 1
-#     return {"values": qk1, "bellman_errors": bellman_errors}
-
-# def policy_evaluation(**kwargs):
-#     gamma = kwargs['gamma']
-#     policy = kwargs['policy']
-#     qk = kwargs['qk']
-#     bellman_errors = kwargs['bellman_errors']
-#
-#     qk1 = qk.copy()
-#     for state in range(n_states):
-#         for action in range(n_actions):
-#             dyn
-
-
-# def policy_iteration(**kwargs):
-#     # Initialization
-#     gamma = kwargs.get("gamma", 1)
-#     policy = kwargs.get("policy", np.full((n_states, n_actions), 0.2))
-#     initial_value = kwargs.get("initial_value", 0)
-#     qk = np.full((n_states, n_actions), initial_value)
-#
-#     policy_stable = False
-#     bellman_errors = []
-#     while not policy_stable:
-#         # Policy Evaluation
-#         qk = policy_evaluation(gamma=gamma, policy=policy, qk=qk, bellman_errors=bellman_errors)["values"]
-#         # Policy Improvement
-#         policy_stable, policy = policy_improvement(gamma=gamma, policy=policy, qk=qk).values()
-#     return policy, len(bellman_errors), bellman_errors
-
 def generalized_policy_iteration(**kwargs):
     return
-
-# def value_iteration(**kwargs):
-#     # Setup
-#     gamma = kwargs.get("gamma", 1)
-#     initial_value = kwargs.get("initial_value", 0)
-#
-#     # Iteration loop
-#     bellman_errors = []
-#     total_iterations = 0
-#     qk = np.full((n_states, n_actions), initial_value)
-#     qk1 = np.full((n_states, n_actions), initial_value)
-#     delta = THETA + 1
-#
-#     # loop for every state
-#     while delta > THETA:
-#         delta = 0
-#         for state in range(n_states):
-#             for action in range(n_actions):
-#                 for state_prime in range(n_states):
-#                     dynamics_prob = P[state, action, state_prime]
-#                     if dynamics_prob == 0:
-#                         continue
-#                     reward = R[state, action]
-#                     inner_sum = 0
-#                     if T[state, action] != 1:
-#
-#                     value += dynamics_prob * (reward + (gamma * value_of_s_prime))
-#                 if action == 0 or value >= max_value:
-#                     max_value = value
-#             vk1[state] = max_value
-#             delta = max(delta, abs(vk[state] - vk1[state]))
-#         error = 0
-#         for vs, vs1 in zip(vk, vk1):
-#             error += abs(vs - vs1)
-#         bellman_errors.append(error)
-#         # copy over to vk array
-#         for state in range(n_states):
-#             vk[state] = vk1[state]
-#         total_iterations += 1
-#
-#     # Now we need to derive the optimal policy from v*
-#     policy = np.full((n_states, n_actions), 0.0)
-#     for state in range(n_states):
-#         max_value = 0
-#         best_action = 0
-#
-#         for action in range(n_actions):
-#             value = 0
-#             for state_prime in range(n_states):
-#                 dynamics_prob = P[state, action, state_prime]
-#                 if dynamics_prob  == 0:
-#                     continue
-#                 reward = R[state, action]
-#                 value_of_s_prime = vk[state_prime]
-#                 if T[state, action] == 1:
-#                     value_of_s_prime = 0
-#                 value += dynamics_prob * (reward + (gamma * value_of_s_prime))
-#             if action == 0:
-#                 max_value = value
-#             elif value >= max_value:
-#                 best_action = action
-#                 max_value = value
-#         policy[state, best_action] = 1.0
-#     return policy, total_iterations, bellman_errors
-#
 
 def policy_evaluation(**kwargs):
     gamma = kwargs['gamma']
     pi = kwargs['pi']
     qk = kwargs['qk']
+    bellman_errors = kwargs['bellman_errors']
 
     delta = THETA + 1
     while delta >= THETA:
         delta = 0
+        q_old = qk.copy()
         for state in range(n_states):
             for action in range(n_actions):
                 value = 0
@@ -294,12 +61,20 @@ def policy_evaluation(**kwargs):
                     reward = R[state, action]
 
                     inner_sum = 0
-                    for action_prime in range(n_actions):
-                        action_prob = pi[state_prime, action_prime]
-                        inner_sum += action_prob * qk[state_prime, action_prime]
+                    if T[state, action] == 0:
+                        for action_prime in range(n_actions):
+                            action_prob = pi[state_prime, action_prime]
+                            inner_sum += action_prob * qk[state_prime, action_prime]
                     value += dynamics_probability * (reward + (gamma * inner_sum))
                 qk[state, action] = value
                 delta = max(delta, abs(initial_q - value))
+
+        # log errors
+        error = 0
+        for state in range(n_states):
+            for action in range(n_actions):
+                error += abs(qk[state, action] - q_old[state, action])
+        bellman_errors.append(error)
 
 def policy_improvement(**kwargs):
     pi = kwargs['pi']
@@ -331,11 +106,12 @@ def policy_iteration(**kwargs):
 
 
     policy_stable = False
+    bellman_errors = []
     while not policy_stable:
         # Policy evaluation
-        policy_evaluation(gamma = gamma, pi = pi, qk = qk)
+        policy_evaluation(gamma = gamma, pi = pi, qk = qk, bellman_errors = bellman_errors)
         pi, policy_stable = policy_improvement(pi = pi, qk = qk)
-    return pi
+    return pi, len(bellman_errors), bellman_errors
 
 
 def plot_graphs():
@@ -355,12 +131,12 @@ def plot_graphs():
 
         # PI
         pi = np.full((n_states, n_actions), 0.2)
-        # pi, tot_iter, be = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
-        pi = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
-        # tot_iter_table[1, i] = tot_iter
-        # assert np.allclose(pi, pi_opt)
+        pi, tot_iter, be = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        # pi = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        tot_iter_table[1, i] = tot_iter
+        assert np.allclose(pi, pi_opt)
         print(np.allclose(pi, pi_opt))
-        # axs[1][i].plot(range(len(be)), be)
+        axs[1][i].plot(range(len(be)), be)
 
         # GPI
         # pi = np.full((n_states, n_actions), 0.2)
