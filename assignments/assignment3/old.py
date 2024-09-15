@@ -39,9 +39,9 @@ def compute_matrices():
 
 def policy_improvement(**kwargs):
     # Get stuff from kwargs
-    policy = kwargs['policy']
-    gamma = kwargs['gamma']
-    vs = kwargs['vs']
+    policy = kwargs["policy"]
+    gamma = kwargs["gamma"]
+    vs = kwargs["vs"]
 
     improved_policy = np.zeros(policy.shape)
 
@@ -129,9 +129,13 @@ def policy_iteration(**kwargs):
     bellman_errors = []
     while not policy_stable:
         # Policy Evaluation
-        vs = policy_evaluation(gamma=gamma, policy=policy, vk=vs, bellman_errors=bellman_errors)["values"]
+        vs = policy_evaluation(
+            gamma=gamma, policy=policy, vk=vs, bellman_errors=bellman_errors
+        )["values"]
         # Policy Improvement
-        policy_stable, policy = policy_improvement(gamma=gamma, policy=policy, vs=vs).values()
+        policy_stable, policy = policy_improvement(
+            gamma=gamma, policy=policy, vs=vs
+        ).values()
         total_iterations += 1
     return policy, total_iterations, bellman_errors
 
@@ -176,9 +180,9 @@ def value_iteration(**kwargs):
                     if T[state, action] == 1:
                         value_of_s_prime = 0
                     value += (
-                            action_prob
-                            * dynamics_prob
-                            * (reward + (gamma * value_of_s_prime))
+                        action_prob
+                        * dynamics_prob
+                        * (reward + (gamma * value_of_s_prime))
                     )
             vk1[state] = value
             delta = max(delta, abs(vk[state] - vk1[state]))
@@ -207,7 +211,9 @@ def plot_graphs():
         # assert np.allclose(pi, pi_opt)
         # axs[0][i].plot(...)
         #
-        pi, tot_iter, be = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        pi, tot_iter, be = policy_iteration(
+            gamma=gamma, policy=pi, initial_value=init_value
+        )
         tot_iter_table[1, i] = tot_iter
         assert np.allclose(pi, pi_opt)
         axs[1][i].plot(range(len(be)), be)

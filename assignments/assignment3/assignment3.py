@@ -119,16 +119,6 @@ def policy_improvement_2(**kwargs):
         policy_stable = True
     return {"isStable": policy_stable, "policy": improved_policy}
 
-# def policy_improvement_3(**kwargs):
-#     # Get stuff from kwargs
-#     policy = kwargs['policy']
-#     gamma = kwargs['gamma']
-#     vs = kwargs['vs']
-#
-#     improved_policy = np.zeros(policy.shape)
-#     policy_stable = False
-#     for state in range(n_states):
-
 
 def policy_evaluation(**kwargs):
     # Get the values we need from good ol kwargs
