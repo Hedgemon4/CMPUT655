@@ -69,7 +69,7 @@ def eps_greedy_action(Q, s, eps):
 
 
 def monte_carlo(
-    env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, seed, use_is
+    env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, use_is
 ):
     # Initialize Values we Need
     eps = 1
@@ -140,81 +140,68 @@ def error_shade_plot(ax, data, stepsize, **kwargs):
     )
 
 
-def compute_q():
-    init_value = 0.0
-    gamma = 0.9
-    max_steps = 2000
-    horizon = 10
+init_value = 0.0
+gamma = 0.9
+max_steps = 2000
+horizon = 10
 
-    episodes_per_iteration = [1, 10, 50]
-    decays = [1, 2, 5]
-    # seeds = np.arange(50)
-    seeds = np.arange(10)
+episodes_per_iteration = [1, 10, 50]
+decays = [1, 2, 5]
+seeds = np.arange(10)
 
-    results = np.zeros(
-        (
-            len(episodes_per_iteration),
-            len(decays),
-            len(seeds),
-            max_steps,
-        )
+results = np.zeros(
+    (
+        len(episodes_per_iteration),
+        len(decays),
+        len(seeds),
+        max_steps,
     )
+)
 
-    fig, axs = plt.subplots(1, 2)
-    plt.ion()
-    plt.show()
+fig, axs = plt.subplots(1, 2)
+plt.ion()
+plt.show()
 
-    use_is = False  # repeat with True
-    for ax, reward_noise_std in zip(axs, [0.0, 3.0]):
-        ax.set_prop_cycle(
-            color=[
-                "red",
-                "green",
-                "blue",
-                "black",
-                "orange",
-                "cyan",
-                "brown",
-                "gray",
-                "pink",
-            ]
-        )
-        ax.set_xlabel("Steps")
-        ax.set_ylabel("Absolute Bellman Error")
-        env = gymnasium.make(
-            "Gym-Gridworlds/Penalty-3x3-v0",
-            max_episode_steps=horizon,
-            reward_noise_std=reward_noise_std,
-        )
-        for j, episodes in enumerate(episodes_per_iteration):
-            for k, decay in enumerate(decays):
-                for seed in seeds:
-                    np.random.seed(seed)
-                    Q = np.zeros((n_states, n_actions)) + init_value
-                    Q, be = monte_carlo(
-                        env,
-                        Q,
-                        gamma,
-                        decay / max_steps,
-                        max_steps,
-                        episodes,
-                        seed,
-                        use_is,
-                    )
-                    results[j, k, seed] = be[0:2000]
-                error_shade_plot(
-                    ax,
-                    results[j, k],
-                    stepsize=1,
-                    label=f"Episodes: {episodes}, Decay: {decay}",
+use_is = False  # repeat with True
+for ax, reward_noise_std in zip(axs, [0.0, 3.0]):
+    ax.set_prop_cycle(
+        color=[
+            "red",
+            "green",
+            "blue",
+            "black",
+            "orange",
+            "cyan",
+            "brown",
+            "gray",
+            "pink",
+        ]
+    )
+    ax.set_xlabel("Steps")
+    ax.set_ylabel("Absolute Bellman Error")
+    env = gymnasium.make(
+        "Gym-Gridworlds/Penalty-3x3-v0",
+        max_episode_steps=horizon,
+        reward_noise_std=reward_noise_std,
+    )
+    for j, episodes in enumerate(episodes_per_iteration):
+        for k, decay in enumerate(decays):
+            for seed in seeds:
+                np.random.seed(seed)
+                Q = np.zeros((n_states, n_actions)) + init_value
+                Q, be = monte_carlo(
+                    env, Q, gamma, decay / max_steps, max_steps, episodes, False
                 )
-                ax.legend()
-                plt.draw()
-                plt.pause(0.001)
+                results[j, k, seed] = be[0:2000]
+            error_shade_plot(
+                ax,
+                results[j, k],
+                stepsize=1,
+                label=f"Episodes: {episodes}, Decay: {decay}",
+            )
+            ax.legend()
+            # plt.draw()
+            # plt.pause(0.001)
 
-    plt.ioff()
-    plt.show()
-
-
-if __name__ == "__main__":
-    compute_q()
+plt.ioff()
+plt.show()
