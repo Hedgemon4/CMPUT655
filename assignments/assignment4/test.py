@@ -90,7 +90,8 @@ def monte_carlo(
             episode_steps = len(data["s"])
             total_steps += episode_steps
             # decay epsilon
-            eps = max(eps - eps_decay / max_steps * episode_steps, 0.01)
+            # eps = max(eps - eps_decay / max_steps * episode_steps, 0.01)
+            eps = max(eps - eps_decay * len(data["r"]), 0.01)
 
         # Update our Q function
         for item in episodes:
@@ -101,10 +102,10 @@ def monte_carlo(
             # for s, a, r in zip(reversed(item["s"]), reversed(item["a"]), reversed(item["r"])):
             #     G = gamma * G + r
             # Not sure about the t + 1
-            for i in reversed(range(len(item["s"]) - 1)):
+            for i in reversed(range(len(item["s"]))):
                 a = item["a"][i]
                 s = item["s"][i]
-                G = gamma * G + item["r"][i + 1]
+                G = gamma * G + item["r"][i]
                 C[s, a] += W
                 Q[s, a] += (W / C[s, a]) * (G - Q[s, a])
 
@@ -146,8 +147,9 @@ max_steps = 2000
 horizon = 10
 
 episodes_per_iteration = [1, 10, 50]
-decays = [1, 2, 5]
-seeds = np.arange(10)
+decays = [0.5, 1, 2]
+seeds = np.arange(50)
+# seeds = np.arange(10)
 
 results = np.zeros(
     (
@@ -200,8 +202,8 @@ for ax, reward_noise_std in zip(axs, [0.0, 3.0]):
                 label=f"Episodes: {episodes}, Decay: {decay}",
             )
             ax.legend()
-            # plt.draw()
-            # plt.pause(0.001)
+            plt.draw()
+            plt.pause(0.001)
 
 plt.ioff()
 plt.show()
