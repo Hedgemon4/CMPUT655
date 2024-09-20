@@ -92,10 +92,11 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
         env_reset = terminated or truncated
         middle_term = 0
         if T[s, a] == 0:
-            middle_term = np.max([s_next])
+            if alg == "QL":
+                middle_term = np.max(Q[s_next])
         # log td error
-        td_error = r + gamma * middle_term - Q[s, a]
-        tde[tot_steps] = td_error
+        td_error = r + (gamma * middle_term) - Q[s, a]
+        tde[tot_steps] = abs(td_error)
         Q[s, a] = Q[s, a] + alp * td_error
         s = s_next
         if env_reset:
@@ -111,16 +112,25 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
                 pi[state, max_actions[state]] = 1.0
 
             q_true = bellman_q(pi, gamma)
-            bellman_error = np.sum(np.abs(q_true - Q))
+            bellman_error = np.mean(np.abs(q_true - Q))
             be.append(bellman_error)
             exp_ret.append(expected_return(env_eval, Q, gamma))
 
         # decay epsilon and alpha
         epsilon = max(epsilon - 1.0 / max_steps, 0.01)
         alp = max(alp - 0.1 / max_steps, 0.001)
+        print(epsilon)
 
         tot_steps += 1
 
+    max_actions = np.argmax(Q, axis=1)
+    pi = np.zeros((n_states, n_actions), dtype=float)
+
+    # For Q-Learning
+    for state in range(n_states):
+        pi[state, max_actions[state]] = 1.0
+
+    print(pi)
     return Q, be, tde, exp_ret
 
 
@@ -150,14 +160,16 @@ def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
     )
 
 
-gamma = 0.99
+gamma = 0.90
 alpha = 0.1
 eps = 1.0
 max_steps = 10000
 horizon = 10
 
-init_values = [-10, 0.0, 10]
-algs = ["QL", "SARSA", "Exp_SARSA"]
+init_values = [-10.0, 0.0, 10.0]
+# init_values = [10.0]
+# algs = ["QL", "SARSA", "Exp_SARSA"]
+algs = ["QL"]
 seeds = np.arange(10)
 
 results_be = np.zeros(
