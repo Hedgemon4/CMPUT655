@@ -77,49 +77,62 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
     epsilon = eps
     alp = alpha
     tot_steps = 0
-    s, _ = env.reset()
+    state, _ = env.reset()
+    env_reset = True
+    action = 0
+    action_prime = 0
     while tot_steps < max_steps:
-        # TD learning with if ... else for the 3 algorithms
-        # log TD error at every timestep
-        # log B error only every 100 steps
-        # expected_return(env_eval, Q, gamma) only every 100
+        # Get interaction with environment if required
+        if env_reset or alg != "SARSA":
+            action = eps_greedy_action(Q, state, epsilon)
 
-        # Code for going through env
-
-        # Get interaction with environment
-        a = eps_greedy_action(Q, s, epsilon)
-        s_next, r, terminated, truncated, _ = env.step(a)
-        env_reset = terminated or truncated
+        state_prime, reward, is_terminated, is_truncated, _ = env.step(action)
+        env_reset = is_terminated or is_truncated
         middle_term = 0
-        if T[s, a] == 0:
+        if T[state, action] == 0:
             if alg == "QL":
-                middle_term = np.max(Q[s_next])
+                middle_term = np.max(Q[state_prime])
+            if alg == "SARSA":
+                action_prime = eps_greedy_action(Q, state_prime, epsilon)
+                middle_term = Q[state_prime, action_prime]
+            if alg == "Exp_SARSA":
+                pi = eps_greedy_probs(Q, epsilon)
+                middle_term =np.sum(pi[state_prime] * Q[state_prime])
+                # for action in range(n_actions):
+                #     middle_term += pi[state_prime, action] * Q[state_prime, action]
+
+
         # log td error
-        td_error = r + (gamma * middle_term) - Q[s, a]
+        td_error = reward + (gamma * middle_term) - Q[state, action]
         tde[tot_steps] = abs(td_error)
-        Q[s, a] = Q[s, a] + alp * td_error
-        s = s_next
-        if env_reset:
-            s, _ = env.reset()
+        Q[state, action] = Q[state, action] + alp * td_error
 
         # Log for bellman error and expected return
         if tot_steps % 100 == 0:
-            max_actions = np.argmax(Q, axis=1)
             pi = np.zeros((n_states, n_actions), dtype=float)
 
             # For Q-Learning
-            for state in range(n_states):
-                pi[state, max_actions[state]] = 1.0
+            if alg == "QL":
+                max_actions = np.argmax(Q, axis=1)
+                for state in range(n_states):
+                    pi[state, max_actions[state]] = 1.0
+            else:
+                pi = eps_greedy_probs(Q, epsilon)
 
             q_true = bellman_q(pi, gamma)
             bellman_error = np.mean(np.abs(q_true - Q))
             be.append(bellman_error)
             exp_ret.append(expected_return(env_eval, Q, gamma))
 
+        # Update state and action
+        state = state_prime
+        action = action_prime
+        if env_reset:
+            state, _ = env.reset()
+
         # decay epsilon and alpha
         epsilon = max(epsilon - 1.0 / max_steps, 0.01)
         alp = max(alp - 0.1 / max_steps, 0.001)
-        print(epsilon)
 
         tot_steps += 1
 
@@ -130,7 +143,6 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
     for state in range(n_states):
         pi[state, max_actions[state]] = 1.0
 
-    print(pi)
     return Q, be, tde, exp_ret
 
 
@@ -160,16 +172,14 @@ def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
     )
 
 
-gamma = 0.90
+gamma = 0.99
 alpha = 0.1
 eps = 1.0
 max_steps = 10000
 horizon = 10
 
 init_values = [-10.0, 0.0, 10.0]
-# init_values = [10.0]
-# algs = ["QL", "SARSA", "Exp_SARSA"]
-algs = ["QL"]
+algs = ["QL", "SARSA", "Exp_SARSA"]
 seeds = np.arange(10)
 
 results_be = np.zeros(
@@ -241,7 +251,6 @@ for i, init_value in enumerate(init_values):
             results_be[i, j, seed] = be
             results_tde[i, j, seed] = tde
             results_exp_ret[i, j, seed] = exp_ret
-            print(i, j, seed)
         label = f"$Q_0$: {init_value}, Alg: {alg}"
         axs[0].set_title("TD Error")
         error_shade_plot(
