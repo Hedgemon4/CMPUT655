@@ -69,7 +69,7 @@ def eps_greedy_action(Q, s, eps):
 
 
 def monte_carlo(
-    env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, seed, use_is
+    env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, use_is
 ):
     # Initialize Values we Need
     eps = 1
@@ -90,23 +90,24 @@ def monte_carlo(
             episode_steps = len(data["s"])
             total_steps += episode_steps
             # decay epsilon
-            eps = max(eps - eps_decay / max_steps * episode_steps, 0.01)
+            eps = max(eps - eps_decay * len(data["r"]), 0.01)
 
         # Update our Q function
         for item in episodes:
             G = 0
             W = 1
-            # for i in reversed(range(len(item["s"]))):
-            #     G = gamma * G + item["r"][i]
-            # for s, a, r in zip(reversed(item["s"]), reversed(item["a"]), reversed(item["r"])):
-            #     G = gamma * G + r
-            # Not sure about the t + 1
-            for i in reversed(range(len(item["s"]) - 1)):
+            for i in reversed(range(len(item["s"]))):
+                if W <= 0:
+                    break
                 a = item["a"][i]
                 s = item["s"][i]
-                G = gamma * G + item["r"][i + 1]
+                G = gamma * G + item["r"][i]
                 C[s, a] += W
                 Q[s, a] += (W / C[s, a]) * (G - Q[s, a])
+                if use_is:
+                    pi = eps_greedy_probs(Q, 0.01)
+                    b = eps_greedy_probs(Q, eps)
+                    W = W * (pi[s, a] / b[s, a])
 
         # Add our previous bellman error
         bellman_errors[last_update_step:total_steps] = [error] * (
@@ -140,81 +141,68 @@ def error_shade_plot(ax, data, stepsize, **kwargs):
     )
 
 
-def compute_q():
-    init_value = 0.0
-    gamma = 0.9
-    max_steps = 2000
-    horizon = 10
+init_value = 0.0
+gamma = 0.9
+max_steps = 2000
+horizon = 10
 
-    episodes_per_iteration = [1, 10, 50]
-    decays = [1, 2, 5]
-    # seeds = np.arange(50)
-    seeds = np.arange(10)
+episodes_per_iteration = [1, 10, 50]
+decays = [0.5, 1, 2]
+seeds = np.arange(50)
 
-    results = np.zeros(
-        (
-            len(episodes_per_iteration),
-            len(decays),
-            len(seeds),
-            max_steps,
-        )
+results = np.zeros(
+    (
+        len(episodes_per_iteration),
+        len(decays),
+        len(seeds),
+        max_steps,
     )
+)
 
-    fig, axs = plt.subplots(1, 2)
-    plt.ion()
-    plt.show()
+fig, axs = plt.subplots(1, 2)
+plt.ion()
+plt.show()
 
-    use_is = False  # repeat with True
-    for ax, reward_noise_std in zip(axs, [0.0, 3.0]):
-        ax.set_prop_cycle(
-            color=[
-                "red",
-                "green",
-                "blue",
-                "black",
-                "orange",
-                "cyan",
-                "brown",
-                "gray",
-                "pink",
-            ]
-        )
-        ax.set_xlabel("Steps")
-        ax.set_ylabel("Absolute Bellman Error")
-        env = gymnasium.make(
-            "Gym-Gridworlds/Penalty-3x3-v0",
-            max_episode_steps=horizon,
-            reward_noise_std=reward_noise_std,
-        )
-        for j, episodes in enumerate(episodes_per_iteration):
-            for k, decay in enumerate(decays):
-                for seed in seeds:
-                    np.random.seed(seed)
-                    Q = np.zeros((n_states, n_actions)) + init_value
-                    Q, be = monte_carlo(
-                        env,
-                        Q,
-                        gamma,
-                        decay / max_steps,
-                        max_steps,
-                        episodes,
-                        seed,
-                        use_is,
-                    )
-                    results[j, k, seed] = be[0:2000]
-                error_shade_plot(
-                    ax,
-                    results[j, k],
-                    stepsize=1,
-                    label=f"Episodes: {episodes}, Decay: {decay}",
+use_is = False  # repeat with True
+for ax, reward_noise_std in zip(axs, [0.0, 3.0]):
+    ax.set_prop_cycle(
+        color=[
+            "red",
+            "green",
+            "blue",
+            "black",
+            "orange",
+            "cyan",
+            "brown",
+            "gray",
+            "pink",
+        ]
+    )
+    ax.set_xlabel("Steps")
+    ax.set_ylabel("Absolute Bellman Error")
+    env = gymnasium.make(
+        "Gym-Gridworlds/Penalty-3x3-v0",
+        max_episode_steps=horizon,
+        reward_noise_std=reward_noise_std,
+    )
+    for j, episodes in enumerate(episodes_per_iteration):
+        for k, decay in enumerate(decays):
+            for seed in seeds:
+                np.random.seed(seed)
+                Q = np.zeros((n_states, n_actions)) + init_value
+                Q, be = monte_carlo(
+                    env, Q, gamma, decay / max_steps, max_steps, episodes, True
                 )
-                ax.legend()
-                plt.draw()
-                plt.pause(0.001)
+                results[j, k, seed] = be[0:2000]
+            error_shade_plot(
+                ax,
+                results[j, k],
+                stepsize=1,
+                label=f"Episodes: {episodes}, Decay: {decay}",
+            )
+            ax.legend()
+            plt.draw()
+            plt.pause(0.001)
 
-    plt.ioff()
-    plt.show()
-
-
-if __name__ == "__main__":
-    compute_q()
+plt.ioff()
+plt.show()
