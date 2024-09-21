@@ -29,6 +29,7 @@ pi_opt[8, 3] = 1.0
 pi_opt[5, 3] = 1.0
 pi_opt[2, 4] = 1.0
 
+
 def compute_matrices():
     env.reset()
     for s in range(n_states):
@@ -39,28 +40,30 @@ def compute_matrices():
             P[s, a, s_next] = 1.0
             T[s, a] = terminated
 
+
 def generalized_policy_iteration(**kwargs):
-    initial_value = kwargs['initial_value']
+    initial_value = kwargs["initial_value"]
     gamma = 0.99
     qk = np.full((n_states, n_actions), initial_value)
     pi = np.full((n_states, n_actions), 0.2)
-
 
     policy_stable = False
     bellman_errors = []
     while not policy_stable:
         # Policy evaluation
-        policy_evaluation(gamma = gamma, pi = pi, qk = qk, bellman_errors = bellman_errors, cutoff=5)
-        pi, policy_stable = policy_improvement_2(pi = pi, qk = qk)
+        policy_evaluation(
+            gamma=gamma, pi=pi, qk=qk, bellman_errors=bellman_errors, cutoff=5
+        )
+        pi, policy_stable = policy_improvement_2(pi=pi, qk=qk)
     return pi, len(bellman_errors), bellman_errors
 
 
 def policy_evaluation(**kwargs):
-    gamma = kwargs['gamma']
-    pi = kwargs['pi']
-    qk = kwargs['qk']
-    bellman_errors = kwargs['bellman_errors']
-    cutoff = kwargs.get('cutoff', 0)
+    gamma = kwargs["gamma"]
+    pi = kwargs["pi"]
+    qk = kwargs["qk"]
+    bellman_errors = kwargs["bellman_errors"]
+    cutoff = kwargs.get("cutoff", 0)
 
     delta = THETA + 1
     iterations = 0
@@ -94,9 +97,10 @@ def policy_evaluation(**kwargs):
         bellman_errors.append(error)
         iterations += 1
 
+
 def policy_improvement(**kwargs):
-    pi = kwargs['pi']
-    qk = kwargs['qk']
+    pi = kwargs["pi"]
+    qk = kwargs["qk"]
 
     policy_stable = False
     improved_policy = np.zeros((n_states, n_actions))
@@ -116,8 +120,8 @@ def policy_improvement(**kwargs):
 
 
 def policy_improvement_2(**kwargs):
-    pi = kwargs['pi']
-    qk = kwargs['qk']
+    pi = kwargs["pi"]
+    qk = kwargs["qk"]
 
     policy_stable = False
     policy_deterministic = True
@@ -129,7 +133,9 @@ def policy_improvement_2(**kwargs):
 
         max_value = max(values)
 
-        indicies_of_max = [index for index, value in enumerate(values) if value == max_value]
+        indicies_of_max = [
+            index for index, value in enumerate(values) if value == max_value
+        ]
         probability = 1.0 / len(indicies_of_max)
 
         if len(indicies_of_max) > 1:
@@ -143,28 +149,25 @@ def policy_improvement_2(**kwargs):
     return improved_policy, policy_stable
 
 
-
 def policy_iteration(**kwargs):
-    initial_value = kwargs['initial_value']
+    initial_value = kwargs["initial_value"]
     gamma = 0.99
     qk = np.full((n_states, n_actions), initial_value)
     pi = np.full((n_states, n_actions), 0.2)
-
 
     policy_stable = False
     bellman_errors = []
     while not policy_stable:
         # Policy evaluation
-        policy_evaluation(gamma = gamma, pi = pi, qk = qk, bellman_errors = bellman_errors)
-        pi, policy_stable = policy_improvement_2(pi = pi, qk = qk)
+        policy_evaluation(gamma=gamma, pi=pi, qk=qk, bellman_errors=bellman_errors)
+        pi, policy_stable = policy_improvement_2(pi=pi, qk=qk)
     return pi, len(bellman_errors), bellman_errors
 
 
 def value_iteration(**kwargs):
-    initial_value = kwargs['initial_value']
+    initial_value = kwargs["initial_value"]
     gamma = 0.99
     qk = np.full((n_states, n_actions), initial_value)
-
 
     bellman_errors = []
     delta = THETA + 1
@@ -229,7 +232,9 @@ def plot_graphs():
 
         # PI
         pi = np.full((n_states, n_actions), 0.2)
-        pi, tot_iter, be = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        pi, tot_iter, be = policy_iteration(
+            gamma=gamma, policy=pi, initial_value=init_value
+        )
         # pi = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
         tot_iter_table[1, i] = tot_iter
         assert np.allclose(pi, pi_opt)
@@ -238,7 +243,9 @@ def plot_graphs():
 
         # GPI
         pi = np.full((n_states, n_actions), 0.2)
-        pi, tot_iter, be = generalized_policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        pi, tot_iter, be = generalized_policy_iteration(
+            gamma=gamma, policy=pi, initial_value=init_value
+        )
         tot_iter_table[2, i] = tot_iter
         assert np.allclose(pi, pi_opt)
         axs[2][i].plot(range(len(be)), be)

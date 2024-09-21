@@ -29,6 +29,7 @@ pi_opt[8, 3] = 1.0
 pi_opt[5, 3] = 1.0
 pi_opt[2, 4] = 1.0
 
+
 def compute_matrices():
     env.reset()
     for s in range(n_states):
@@ -42,9 +43,9 @@ def compute_matrices():
 
 def policy_improvement(**kwargs):
     # Get stuff from kwargs
-    policy = kwargs['policy']
-    gamma = kwargs['gamma']
-    vs = kwargs['vs']
+    policy = kwargs["policy"]
+    gamma = kwargs["gamma"]
+    vs = kwargs["vs"]
 
     improved_policy = np.zeros(policy.shape)
 
@@ -58,7 +59,7 @@ def policy_improvement(**kwargs):
             value = 0
             for state_prime in range(n_states):
                 dynamics_prob = P[state, action, state_prime]
-                if dynamics_prob  == 0:
+                if dynamics_prob == 0:
                     continue
                 reward = R[state, action]
                 value_of_s_prime = vs[state_prime]
@@ -77,11 +78,12 @@ def policy_improvement(**kwargs):
         policy_stable = True
     return {"isStable": policy_stable, "policy": improved_policy}
 
+
 def policy_improvement_2(**kwargs):
     # Get stuff from kwargs
-    policy = kwargs['policy']
-    gamma = kwargs['gamma']
-    vs = kwargs['vs']
+    policy = kwargs["policy"]
+    gamma = kwargs["gamma"]
+    vs = kwargs["vs"]
 
     improved_policy = np.zeros(policy.shape)
 
@@ -95,7 +97,7 @@ def policy_improvement_2(**kwargs):
             value = 0
             for state_prime in range(n_states):
                 dynamics_prob = P[state, action, state_prime]
-                if dynamics_prob  == 0:
+                if dynamics_prob == 0:
                     continue
                 reward = R[state, action]
                 value_of_s_prime = vs[state_prime]
@@ -106,7 +108,9 @@ def policy_improvement_2(**kwargs):
 
         max_value = max(values)
 
-        indicies_of_max = [index for index, value in enumerate(values) if value == max_value]
+        indicies_of_max = [
+            index for index, value in enumerate(values) if value == max_value
+        ]
         probability = 1.0 / len(indicies_of_max)
 
         if len(indicies_of_max) > 1:
@@ -172,6 +176,7 @@ def policy_evaluation(**kwargs):
         num_iterations += 1
     return {"values": vk, "bellman_errors": bellman_errors}
 
+
 def policy_evaluation_gpi(**kwargs):
     # Get the values we need from good ol kwargs
     gamma = kwargs.get("gamma", 1)
@@ -222,7 +227,6 @@ def policy_evaluation_gpi(**kwargs):
     return {"values": vk, "bellman_errors": bellman_errors, "delta": delta}
 
 
-
 def policy_iteration(**kwargs):
     # Initialization
     gamma = kwargs.get("gamma", 1)
@@ -234,9 +238,13 @@ def policy_iteration(**kwargs):
     bellman_errors = []
     while not policy_stable:
         # Policy Evaluation
-        vs = policy_evaluation(gamma=gamma, policy=policy, vk=vs, bellman_errors=bellman_errors)["values"]
+        vs = policy_evaluation(
+            gamma=gamma, policy=policy, vk=vs, bellman_errors=bellman_errors
+        )["values"]
         # Policy Improvement
-        policy_stable, policy = policy_improvement(gamma=gamma, policy=policy, vs=vs).values()
+        policy_stable, policy = policy_improvement(
+            gamma=gamma, policy=policy, vs=vs
+        ).values()
     return policy, len(bellman_errors), bellman_errors
 
 
@@ -251,11 +259,19 @@ def generalized_policy_iteration(**kwargs):
     while not policy_stable:
         delta = 0
         # Policy Evaluation
-        results = policy_evaluation_gpi(gamma=gamma, policy=policy, vk=vs, bellman_errors=bellman_errors, early_exit=5)
+        results = policy_evaluation_gpi(
+            gamma=gamma,
+            policy=policy,
+            vk=vs,
+            bellman_errors=bellman_errors,
+            early_exit=5,
+        )
         vs = results["values"]
         delta = results["delta"]
         # Policy Improvement
-        policy_stable, policy = policy_improvement_2(gamma=gamma, policy=policy, vs=vs).values()
+        policy_stable, policy = policy_improvement_2(
+            gamma=gamma, policy=policy, vs=vs
+        ).values()
     return policy, len(bellman_errors), bellman_errors
 
 
@@ -311,7 +327,7 @@ def value_iteration(**kwargs):
             value = 0
             for state_prime in range(n_states):
                 dynamics_prob = P[state, action, state_prime]
-                if dynamics_prob  == 0:
+                if dynamics_prob == 0:
                     continue
                 reward = R[state, action]
                 value_of_s_prime = vk[state_prime]
@@ -343,14 +359,18 @@ def plot_graphs():
 
         # PI
         pi = np.full((n_states, n_actions), 0.2)
-        pi, tot_iter, be = policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        pi, tot_iter, be = policy_iteration(
+            gamma=gamma, policy=pi, initial_value=init_value
+        )
         tot_iter_table[1, i] = tot_iter
         assert np.allclose(pi, pi_opt)
         axs[1][i].plot(range(len(be)), be)
 
         # GPI
         pi = np.full((n_states, n_actions), 0.2)
-        pi, tot_iter, be = generalized_policy_iteration(gamma=gamma, policy=pi, initial_value=init_value)
+        pi, tot_iter, be = generalized_policy_iteration(
+            gamma=gamma, policy=pi, initial_value=init_value
+        )
         tot_iter_table[2, i] = tot_iter
         assert np.allclose(pi, pi_opt)
         axs[2][i].plot(range(len(be)), be)
