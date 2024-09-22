@@ -97,9 +97,7 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
                 middle_term = Q[state_prime, action_prime]
             if alg == "Exp_SARSA":
                 pi = eps_greedy_probs(Q, epsilon)
-                middle_term =np.sum(pi[state_prime] * Q[state_prime])
-                # for action in range(n_actions):
-                #     middle_term += pi[state_prime, action] * Q[state_prime, action]
+                middle_term =np.sum(np.multiply(pi[state_prime], Q[state_prime]))
 
 
         # log td error
@@ -126,7 +124,8 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
 
         # Update state and action
         state = state_prime
-        action = action_prime
+        if alg == "SARSA":
+            action = action_prime
         if env_reset:
             state, _ = env.reset()
 
@@ -144,6 +143,93 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
         pi[state, max_actions[state]] = 1.0
 
     return Q, be, tde, exp_ret
+
+
+def td_double(env, env_eval, Q1, Q2, gamma, eps, alpha, max_steps, alg):
+    be = []
+    exp_ret = []
+    tde = np.zeros(max_steps)
+    eps_decay = eps / max_steps
+    alpha_decay = alpha / max_steps
+    epsilon = eps
+    alp = alpha
+    tot_steps = 0
+    state, _ = env.reset()
+    env_reset = True
+    action = 0
+    action_prime = 0
+    while tot_steps < max_steps:
+        # Get interaction with environment if required
+        if env_reset or alg != "SARSA":
+            action = eps_greedy_action(Q1 + Q2, state, epsilon)
+
+        state_prime, reward, is_terminated, is_truncated, _ = env.step(action)
+        env_reset = is_terminated or is_truncated
+        middle_term = 0
+        prob = np.random.rand()
+        if T[state, action] == 0:
+            if alg == "QL":
+                if prob < 0.5:
+                    middle_term = Q2[state_prime, np.argmax(Q1[state_prime])]
+                else:
+                    middle_term = Q1[state_prime, np.argmax(Q2[state_prime])]
+            if alg == "SARSA":
+                action_prime = eps_greedy_action(Q, state_prime, epsilon)
+                middle_term = Q[state_prime, action_prime]
+            if alg == "Exp_SARSA":
+                pi = eps_greedy_probs(Q, epsilon)
+                middle_term =np.sum(np.multiply(pi[state_prime], Q[state_prime]))
+
+
+        # log td error
+        if prob < 0.5:
+            td_error = reward + (gamma * middle_term) - Q1[state, action]
+            tde[tot_steps] = abs(td_error)
+            Q1[state, action] = Q1[state, action] + alp * td_error
+        else:
+            td_error = reward + (gamma * middle_term) - Q2[state, action]
+            tde[tot_steps] = abs(td_error)
+            Q2[state, action] = Q2[state, action] + alp * td_error
+
+        # Log for bellman error and expected return
+        if tot_steps % 100 == 0:
+            pi = np.zeros((n_states, n_actions), dtype=float)
+
+            # For Q-Learning
+            if alg == "QL":
+                max_actions = np.argmax(Q1 + Q2, axis=1)
+                for state in range(n_states):
+                    pi[state, max_actions[state]] = 1.0
+            else:
+                pi = eps_greedy_probs(Q1 + Q2, epsilon)
+
+            q_true = bellman_q(pi, gamma)
+            bellman_error = np.mean(np.abs(((Q1 + Q2) / 2 )- q_true))
+            be.append(bellman_error)
+            exp_ret.append(expected_return(env_eval, Q, gamma))
+
+        # Update state and action
+        state = state_prime
+        if alg == "SARSA":
+            action = action_prime
+        if env_reset:
+            state, _ = env.reset()
+
+        # decay epsilon and alpha
+        epsilon = max(epsilon - 1.0 / max_steps, 0.01)
+        alp = max(alp - 0.1 / max_steps, 0.001)
+
+        tot_steps += 1
+
+    max_actions = np.argmax(Q, axis=1)
+    pi = np.zeros((n_states, n_actions), dtype=float)
+
+    # For Q-Learning
+    for state in range(n_states):
+        pi[state, max_actions[state]] = 1.0
+
+    return Q, be, tde, exp_ret
+
 
 
 # https://stackoverflow.com/a/63458548/754136
@@ -212,6 +298,7 @@ plt.ion()
 plt.show()
 
 reward_noise_std = 0.0  # re-run with 3.0
+# reward_noise_std = 3.0
 
 for ax in axs:
     ax.set_prop_cycle(
