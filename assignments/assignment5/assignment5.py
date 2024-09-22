@@ -173,16 +173,19 @@ def td_double(env, env_eval, Q1, Q2, gamma, eps, alpha, max_steps, alg):
                 else:
                     middle_term = Q1[state_prime, np.argmax(Q2[state_prime])]
             if alg == "SARSA":
-                action_prime = eps_greedy_action(Q1 + Q2, state_prime, epsilon)
                 if prob < 0.5:
+                    action_prime = eps_greedy_action(Q1, state_prime, epsilon)
                     middle_term = Q2[state_prime, action_prime]
                 else:
+                    action_prime = eps_greedy_action(Q2, state_prime, epsilon)
                     middle_term = Q1[state_prime, action_prime]
             if alg == "Exp_SARSA":
-                pi = eps_greedy_probs(Q1 + Q2, epsilon)
+
                 if prob < 0.5:
+                    pi = eps_greedy_probs(Q1, epsilon)
                     middle_term = np.sum(np.multiply(pi[state_prime], Q2[state_prime]))
                 else:
+                    pi = eps_greedy_probs(Q2, epsilon)
                     middle_term = np.sum(np.multiply(pi[state_prime], Q1[state_prime]))
 
         # log td error
@@ -264,9 +267,9 @@ def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
 gamma = 0.99
 alpha = 0.1
 eps = 1.0
-max_steps = 20000
+max_steps = 10000
 horizon = 10
-use_double = True
+use_double = False
 
 init_values = [-10.0, 0.0, 10.0]
 algs = ["QL", "SARSA", "Exp_SARSA"]
