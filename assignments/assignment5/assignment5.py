@@ -97,8 +97,7 @@ def td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg):
                 middle_term = Q[state_prime, action_prime]
             if alg == "Exp_SARSA":
                 pi = eps_greedy_probs(Q, epsilon)
-                middle_term =np.sum(np.multiply(pi[state_prime], Q[state_prime]))
-
+                middle_term = np.sum(np.multiply(pi[state_prime], Q[state_prime]))
 
         # log td error
         td_error = reward + (gamma * middle_term) - Q[state, action]
@@ -174,12 +173,17 @@ def td_double(env, env_eval, Q1, Q2, gamma, eps, alpha, max_steps, alg):
                 else:
                     middle_term = Q1[state_prime, np.argmax(Q2[state_prime])]
             if alg == "SARSA":
-                action_prime = eps_greedy_action(Q, state_prime, epsilon)
-                middle_term = Q[state_prime, action_prime]
+                action_prime = eps_greedy_action(Q1 + Q2, state_prime, epsilon)
+                if prob < 0.5:
+                    middle_term = Q2[state_prime, action_prime]
+                else:
+                    middle_term = Q1[state_prime, action_prime]
             if alg == "Exp_SARSA":
-                pi = eps_greedy_probs(Q, epsilon)
-                middle_term =np.sum(np.multiply(pi[state_prime], Q[state_prime]))
-
+                pi = eps_greedy_probs(Q1 + Q2, epsilon)
+                if prob < 0.5:
+                    middle_term = np.sum(np.multiply(pi[state_prime], Q2[state_prime]))
+                else:
+                    middle_term = np.sum(np.multiply(pi[state_prime], Q1[state_prime]))
 
         # log td error
         if prob < 0.5:
@@ -204,9 +208,9 @@ def td_double(env, env_eval, Q1, Q2, gamma, eps, alpha, max_steps, alg):
                 pi = eps_greedy_probs(Q1 + Q2, epsilon)
 
             q_true = bellman_q(pi, gamma)
-            bellman_error = np.mean(np.abs(((Q1 + Q2) / 2 )- q_true))
+            bellman_error = np.mean(np.abs(((Q1 + Q2) / 2) - q_true))
             be.append(bellman_error)
-            exp_ret.append(expected_return(env_eval, Q, gamma))
+            exp_ret.append(expected_return(env_eval, Q1 + Q2, gamma))
 
         # Update state and action
         state = state_prime
@@ -228,8 +232,7 @@ def td_double(env, env_eval, Q1, Q2, gamma, eps, alpha, max_steps, alg):
     for state in range(n_states):
         pi[state, max_actions[state]] = 1.0
 
-    return Q, be, tde, exp_ret
-
+    return Q1 + Q2, be, tde, exp_ret
 
 
 # https://stackoverflow.com/a/63458548/754136
@@ -261,8 +264,9 @@ def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
 gamma = 0.99
 alpha = 0.1
 eps = 1.0
-max_steps = 10000
+max_steps = 20000
 horizon = 10
+use_double = True
 
 init_values = [-10.0, 0.0, 10.0]
 algs = ["QL", "SARSA", "Exp_SARSA"]
@@ -332,8 +336,11 @@ for i, init_value in enumerate(init_values):
         for seed in seeds:
             np.random.seed(seed)
             Q = np.zeros((n_states, n_actions)) + init_value
-            Q, be, tde, exp_ret = td(
-                env, env_eval, Q, gamma, eps, alpha, max_steps, alg
+            Q2 = np.zeros((n_states, n_actions)) + init_value
+            Q, be, tde, exp_ret = (
+                td_double(env, env_eval, Q, Q2, gamma, eps, alpha, max_steps, alg)
+                if use_double
+                else td(env, env_eval, Q, gamma, eps, alpha, max_steps, alg)
             )
             results_be[i, j, seed] = be
             results_tde[i, j, seed] = tde

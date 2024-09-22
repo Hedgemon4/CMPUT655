@@ -68,9 +68,7 @@ def eps_greedy_action(Q, s, eps):
     return np.random.choice(choices, p=probs[s])
 
 
-def monte_carlo(
-    env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, use_is
-):
+def monte_carlo(env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, use_is):
     # Initialize Values we Need
     eps = 1
     total_steps = 0
