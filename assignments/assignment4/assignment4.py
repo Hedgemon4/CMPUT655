@@ -77,7 +77,10 @@ def monte_carlo(env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, use
     C = np.zeros((n_states, n_actions))
 
     # Get initial error
-    error = bellman_error(Q, eps, gamma)
+    if use_is:
+        error = bellman_error(Q, 0.01, gamma)
+    else:
+        error = bellman_error(Q, eps, gamma)
 
     while total_steps < max_steps:
         # Generate Episodes
@@ -112,7 +115,10 @@ def monte_carlo(env, Q, gamma, eps_decay, max_steps, episodes_per_iteration, use
             total_steps - last_update_step
         )
         last_update_step = total_steps
-        error = bellman_error(Q, eps, gamma)
+        if use_is:
+            error = bellman_error(Q, 0.01, gamma)
+        else:
+            error = bellman_error(Q, eps, gamma)
 
     return Q, bellman_errors
 
