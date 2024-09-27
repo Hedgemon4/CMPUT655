@@ -153,7 +153,6 @@ plt.show()
 # - In state aggregation the hyperparameter(s) is/are ...
 # Discuss each bullet point in at most two sentences.
 
-
 #################### PART 2
 # Consider the function below.
 
@@ -185,12 +184,12 @@ plt.show()
 
 max_iter = 10000
 thresh = 1e-8
-alpha = 1.0
+alpha = 0.01
 number_of_centers = 20
-centers = np.linspace(-10, 10, number_of_centers)
+centers = np.linspace(-10, 10, number_of_centers)[..., None]
 
 for name, get_phi in zip(["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."], [
-        lambda state : poly_features(state, 3),
+        lambda state : poly_features(state, 10),
         lambda state : rbf_features(state, centers, 0.2),
         lambda state : tile_features(state, centers, 0.5),
         lambda state : coarse_features(state, centers, 0.5),
@@ -201,35 +200,22 @@ for name, get_phi in zip(["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."], [
     pbar = tqdm(total=max_iter)
     for iter in range(max_iter):
         # do gradient descent
-        test_mse = (y - np.dot(phi, weights) ** 2)
+        test_mse = (y - np.dot(phi, weights)) ** 2
         mse = np.mean(test_mse)
         pbar.set_description(f"MSE: {mse}")
         pbar.update()
-        print("Before")
-        print(weights.shape)
-        # inner_mean = np.mean((y - np.dot(phi, weights))[..., None], axis=0)
-        inner_value = y - np.dot(phi, weights)
-        item = inner_value[..., None] * phi
-        item_1 = np.mean(alpha * phi, axis=0)
-        item_final = weights + item_1
-        weights = weights + alpha * np.mean((y - np.dot(phi, weights))[..., None], axis=0) * phi
-        print("After")
-        print(weights.shape)
+        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi, axis=0)
         if mse < thresh:
             break
 
     print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
     fig, axs = plt.subplots(1, 2)
     axs[0].plot(x, y)
-    # Maybe this was not supposed to be?
-    y_hat = weights * x
+    y_hat = np.dot(phi, weights)
     axs[1].plot(x, y_hat)
     axs[0].set_title("True Function")
     axs[1].set_title(f"Approximation with {name} (MSE {mse:.3f})")
     plt.show()
-
-# TODO: Remove this
-exit()
 
 # Now repeat the experiment but fit the following function y.
 # Submit your plots and discuss your results, paying attention to the
@@ -251,31 +237,33 @@ axs.plot(x, y)
 plt.show()
 
 for name, get_phi in zip(["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."], [
-        lambda state : poly_features(state, ...),
-        lambda state : rbf_features(state, ...),
-        lambda state : tile_features(state, ...),
-        lambda state : coarse_features(state, ...),
-        lambda state : aggregation_features(state, ...),
+        lambda state : poly_features(state, 10),
+        lambda state : rbf_features(state, centers, 0.2),
+        lambda state : tile_features(state, centers, 0.5),
+        lambda state : coarse_features(state, centers, 0.5),
+        lambda state : aggregation_features(state, centers),
     ]):
     phi = get_phi(x[..., None])
     weights = np.zeros(phi.shape[-1])
     pbar = tqdm(total=max_iter)
     for iter in range(max_iter):
         # do gradient descent
-        mse = ...
+        test_mse = (y - np.dot(phi, weights)) ** 2
+        mse = np.mean(test_mse)
         pbar.set_description(f"MSE: {mse}")
         pbar.update()
+        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi, axis=0)
         if mse < thresh:
             break
 
     print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
     fig, axs = plt.subplots(1, 2)
     axs[0].plot(x, y)
+    y_hat = np.dot(phi, weights)
     axs[1].plot(x, y_hat)
     axs[0].set_title("True Function")
     axs[1].set_title(f"Approximation with {name} (MSE {mse:.3f})")
     plt.show()
-
 
 #################### PART 3
 # Consider the Gridworld depicted below. The dataset below contains episodes
@@ -291,6 +279,8 @@ for name, get_phi in zip(["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."], [
 #   Use gamma = 0.99. Increase the number of iterations, if you'd like.
 #   Plot your result of the true V-function against your approximation using the
 #   provided plotting function.
+
+# TODO: Same thing here as above, we just change the error for the TD error instead
 
 data = np.load("a6_gridworld.npz")
 s = data["s"]
@@ -311,20 +301,38 @@ max_iter = 20000
 alpha = 0.01
 thresh = 1e-8
 
+number_of_centers = 10
+state_1_centers = np.linspace(0, 9, number_of_centers)
+state_2_centers = np.linspace(0, 9, number_of_centers)
+centers = np.array(
+    np.meshgrid(state_1_centers, state_2_centers)
+).reshape(state_size, -1).T
+offsets = [(-0.1, 0.0), (0.0, 0.1), (0.1, 0.0), (0.0, -0.1)]
+
+# should try a non-uniform amount of offset
+
 # Pick one
 # name, get_phi = "Poly", lambda state : poly_features(state, ...)
 # name, get_phi = "RBFs", lambda state : rbf_features(state, ...)
-# name, get_phi = "Tiles", lambda state : tile_features(state, ...)
+name, get_phi = "Tiles", lambda state : tile_features(state, centers, 0.5)
 # name, get_phi = "Coarse", lambda state : coarse_features(state, ...)
 # name, get_phi = "Aggreg.", lambda state: aggregation_features(state, ...)
 
+# state, centers, widths, offsets
+
 phi = get_phi(s)
+print("Hello world")
 phi_next = get_phi(s_next)
 weights = np.zeros(phi.shape[-1])
 pbar = tqdm(total=max_iter)
 for iter in range(max_iter):
+    # Code from above
+    # test_mse = (y - np.dot(phi, weights)) ** 2
+    # mse = np.mean(test_mse)
+    # weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi, axis=0)
+
     # do TD semi-gradient
-    td_error = ...
+    td_error = r + gamma * np.dot(phi_next, weights) - np.dot(phi, weights)
     mse = ...  # prediction - V
     pbar.set_description(f"TDE: {td_error}, MSE: {mse}")
     pbar.update()
