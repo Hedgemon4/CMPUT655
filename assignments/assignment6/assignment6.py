@@ -61,7 +61,7 @@ def tile_features(
     for i in range(state.shape[0]):
         for j in range(centers.shape[0]):
             for offset in offsets:
-                Z[i, j] += 1 if np.all(np.abs(state[i, :] - centers[j, :]) < (widths + offset)) else 0
+                Z[i, j] += 1 if np.all(np.abs(state[i, :] - centers[j, :]) < (widths + np.asarray(offset))) else 0
     return Z / len(offsets)
 
 
@@ -77,6 +77,13 @@ def coarse_features(
     Note that coarse coding is more general and allows for ellipses (not just circles)
     but let's consider only circles for the sake of simplicity.
     """
+    Z = np.zeros((state.shape[0], centers.shape[0]))
+    for i in range(state.shape[0]):
+        for j in range(centers.shape[0]):
+            for offset in offsets:
+                Z[i, j] += 1 if np.all(np.linalg.norm(state[i, :] - centers[j, :]) < (widths + np.asarray(offset))) else 0
+    return Z / len(offsets)
+
 
 def aggregation_features(state: np.array, centers: np.array) -> np.array:
     """
@@ -85,6 +92,13 @@ def aggregation_features(state: np.array, centers: np.array) -> np.array:
     Note that we can turn this into a discrete (finite) representation of the state,
     because we will have as many feature representations as centers.
     """
+    Z = np.zeros((state.shape[0], centers.shape[0]))
+    for i in range(state.shape[0]):
+        for j in range(centers.shape[0]):
+                Z[i, j] = np.linalg.norm(state[i, :] - centers[j, :])
+    output = np.zeros_like(Z)
+    output[np.arange(state.shape[0]), np.argmax(Z, axis=1)] = 1.0
+    return output
 
 state_size = 2
 n_samples = 10
@@ -101,12 +115,12 @@ widths = 0.2
 offsets = [(-0.1, 0.0), (0.0, 0.1), (0.1, 0.0), (0.0, -0.1)]
 
 poly = poly_features(state, 2)
-# aggr = aggregation_features(state, centers)
+aggr = aggregation_features(state, centers)
 rbf = rbf_features(state, centers, sigmas)
 tile_one = tile_features(state, centers, widths)
 tile_multi = tile_features(state, centers, widths, offsets)
-# coarse_one = coarse_features(state, centers, widths)
-# coarse_multi = coarse_features(state, centers, widths, offsets)
+coarse_one = coarse_features(state, centers, widths)
+coarse_multi = coarse_features(state, centers, widths, offsets)
 
 fig, axs = plt.subplots(1, 6)
 extent = [
@@ -118,17 +132,15 @@ extent = [
 axs[0].imshow(rbf[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
 axs[1].imshow(tile_one[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
 axs[2].imshow(tile_multi[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
-# axs[3].imshow(coarse_one[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
-# axs[4].imshow(coarse_multi[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
-# axs[5].imshow(aggr[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
+axs[3].imshow(coarse_one[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
+axs[4].imshow(coarse_multi[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
+axs[5].imshow(aggr[0].reshape(n_centers, n_centers), extent=extent, origin='lower')
 titles = ["RBFs", "Tile (1 Tiling)", "Tile (4 Tilings)", "Coarse (1 Field)", "Coarse (4 Fields)", "Aggreg."]  # we can't plot poly like this
 for ax, title in zip(axs, titles):
     ax.plot(state[0][0], state[0][1], marker="+", markersize=12, color="red")
     ax.set_title(title)
 plt.suptitle(f"State {state[0]}")
 plt.show()
-# TODO: Remove this
-exit()
 
 #################### PART 1
 # Submit your heatmaps.
@@ -174,32 +186,50 @@ plt.show()
 max_iter = 10000
 thresh = 1e-8
 alpha = 1.0
+number_of_centers = 20
+centers = np.linspace(-10, 10, number_of_centers)
 
 for name, get_phi in zip(["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."], [
-        lambda state : poly_features(state, ...),
-        lambda state : rbf_features(state, ...),
-        lambda state : tile_features(state, ...),
-        lambda state : coarse_features(state, ...),
-        lambda state : aggregation_features(state, ...),
+        lambda state : poly_features(state, 3),
+        lambda state : rbf_features(state, centers, 0.2),
+        lambda state : tile_features(state, centers, 0.5),
+        lambda state : coarse_features(state, centers, 0.5),
+        lambda state : aggregation_features(state, centers),
     ]):
     phi = get_phi(x[..., None])  # from (N,) to (N, S) with S = 1
     weights = np.zeros(phi.shape[-1])
     pbar = tqdm(total=max_iter)
     for iter in range(max_iter):
         # do gradient descent
-        mse = ...
+        test_mse = (y - np.dot(phi, weights) ** 2)
+        mse = np.mean(test_mse)
         pbar.set_description(f"MSE: {mse}")
         pbar.update()
+        print("Before")
+        print(weights.shape)
+        # inner_mean = np.mean((y - np.dot(phi, weights))[..., None], axis=0)
+        inner_value = y - np.dot(phi, weights)
+        item = inner_value[..., None] * phi
+        item_1 = np.mean(alpha * phi, axis=0)
+        item_final = weights + item_1
+        weights = weights + alpha * np.mean((y - np.dot(phi, weights))[..., None], axis=0) * phi
+        print("After")
+        print(weights.shape)
         if mse < thresh:
             break
 
     print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
     fig, axs = plt.subplots(1, 2)
     axs[0].plot(x, y)
+    # Maybe this was not supposed to be?
+    y_hat = weights * x
     axs[1].plot(x, y_hat)
     axs[0].set_title("True Function")
     axs[1].set_title(f"Approximation with {name} (MSE {mse:.3f})")
     plt.show()
+
+# TODO: Remove this
+exit()
 
 # Now repeat the experiment but fit the following function y.
 # Submit your plots and discuss your results, paying attention to the
@@ -313,6 +343,8 @@ plt.show()
 #################### PART 4
 # - Run TD again, but this time learn an approximation of the Q-function.
 #   How did you have to change your code?
+
+# TODO: Loop over the actions because we can't update it all at once
 
 max_iter = 20
 alpha = 0.01
