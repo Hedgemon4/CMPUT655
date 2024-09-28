@@ -243,12 +243,7 @@ for name, get_phi in zip(
         mse = np.mean(test_mse)
         pbar.set_description(f"MSE: {mse}")
         pbar.update()
-        # inner = (y - np.dot(phi, weights))[..., None] * phi
-        # l1_inner_norm = np.sum(np.abs(phi), axis=1, keepdims=True)
-        # l1_inner_norm[l1_inner_norm == 0] = 1
-        # inner_norm = inner / l1_inner_norm
-        # weights += np.mean(alpha * inner_norm, axis=0)
-        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * normalized_phi, axis=0)
+        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi / np.linalg.norm(phi), axis=0)
         if mse < thresh:
             break
 
@@ -283,7 +278,7 @@ plt.show()
 for name, get_phi in zip(
     ["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."],
     [
-        lambda state: poly_features(state, 10),
+        lambda state: poly_features(state, 3),
         lambda state: rbf_features(state, centers, 0.2),
         lambda state: tile_features(state, centers, 0.5),
         lambda state: coarse_features(state, centers, 0.5),
@@ -360,7 +355,7 @@ max_iter = 20000
 alpha = 0.01
 thresh = 1e-8
 
-number_of_centers = 20
+number_of_centers = 10
 state_1_centers = np.linspace(0, 8, number_of_centers)
 state_2_centers = np.linspace(0, 8, number_of_centers)
 centers = (
@@ -390,7 +385,7 @@ for iter in range(max_iter):
     # Code from above\
     # do TD semi-gradient
     td_error = r + (gamma * np.dot(phi_next, weights) * (1 - term_nums)) - np.dot(phi, weights)
-    weights += np.mean(alpha * (td_error)[..., None] * normalized_phi, axis=0)
+    weights += np.mean(alpha * (td_error)[..., None] * phi, axis=0)
     # mse = ...  # prediction - V
     mse = np.mean((np.dot(phi, weights) - V) ** 2)
     pbar.set_description(f"TDE: {td_error}, MSE: {mse}")
