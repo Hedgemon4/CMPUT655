@@ -221,7 +221,7 @@ centers = np.linspace(-10, 10, number_of_centers)[..., None]
 for name, get_phi in zip(
     ["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."],
     [
-        lambda state: poly_features(state, 10),
+        lambda state: poly_features(state, 3),
         lambda state: rbf_features(state, centers, 0.2),
         lambda state: tile_features(state, centers, 0.5),
         lambda state: coarse_features(state, centers, 0.5),
@@ -231,13 +231,24 @@ for name, get_phi in zip(
     phi = get_phi(x[..., None])  # from (N,) to (N, S) with S = 1
     weights = np.zeros(phi.shape[-1])
     pbar = tqdm(total=max_iter)
+    # normalized_phi = (phi - phi.min()) / (phi.max() - phi.min())
+
+    # l1_norm_row = np.sum(np.abs(phi), axis=1, keepdims=True)
+    # l1_norm_row[l1_norm_row == 0] = 1
+    # normalized_phi = phi / l1_norm_row
+    
     for iter in range(max_iter):
         # do gradient descent
         test_mse = (y - np.dot(phi, weights)) ** 2
         mse = np.mean(test_mse)
         pbar.set_description(f"MSE: {mse}")
         pbar.update()
-        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi, axis=0)
+        # inner = (y - np.dot(phi, weights))[..., None] * phi
+        # l1_inner_norm = np.sum(np.abs(phi), axis=1, keepdims=True)
+        # l1_inner_norm[l1_inner_norm == 0] = 1
+        # inner_norm = inner / l1_inner_norm
+        # weights += np.mean(alpha * inner_norm, axis=0)
+        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * normalized_phi, axis=0)
         if mse < thresh:
             break
 
@@ -350,8 +361,8 @@ alpha = 0.01
 thresh = 1e-8
 
 number_of_centers = 20
-state_1_centers = np.linspace(0, 9, number_of_centers)
-state_2_centers = np.linspace(0, 9, number_of_centers)
+state_1_centers = np.linspace(0, 8, number_of_centers)
+state_2_centers = np.linspace(0, 8, number_of_centers)
 centers = (
     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
 )
@@ -368,29 +379,26 @@ name, get_phi = "RBFs", lambda state : rbf_features(state, centers, 1.0)
 # name, get_phi = "Aggreg.", lambda state: aggregation_features(state, ...)
 
 # state, centers, widths, offsets
+term_nums = term.astype(int)
 
 phi = get_phi(s)
-print("Hello world")
 phi_next = get_phi(s_next)
+normalized_phi = (phi - phi.min()) / (phi.max() - phi.min())
 weights = np.zeros(phi.shape[-1])
 pbar = tqdm(total=max_iter)
 for iter in range(max_iter):
-    # Code from above
-    # test_mse = (y - np.dot(phi, weights)) ** 2
-    # mse = np.mean(test_mse)
-    # weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi, axis=0)
-
+    # Code from above\
     # do TD semi-gradient
-    td_error = r + gamma * np.dot(phi_next, weights) - np.dot(phi, weights)
-    weights += np.mean(alpha * (td_error)[..., None] * phi, axis=0)
+    td_error = r + (gamma * np.dot(phi_next, weights) * (1 - term_nums)) - np.dot(phi, weights)
+    weights += np.mean(alpha * (td_error)[..., None] * normalized_phi, axis=0)
     # mse = ...  # prediction - V
-    mse = np.mean((np.dot(phi_next, weights) - V) ** 2)
+    mse = np.mean((np.dot(phi, weights) - V) ** 2)
     pbar.set_description(f"TDE: {td_error}, MSE: {mse}")
     pbar.update()
     if mse < thresh:
         break
 
-td_prediction = np.dot(phi_next, weights)
+td_prediction = np.dot(phi, weights)
 
 print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
 fig, axs = plt.subplots(1, 2)
