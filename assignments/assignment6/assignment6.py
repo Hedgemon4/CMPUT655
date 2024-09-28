@@ -222,7 +222,7 @@ for name, get_phi in zip(
     ["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."],
     [
         lambda state: poly_features(state, 3),
-        lambda state: rbf_features(state, centers, 0.2),
+        lambda state: rbf_features(state, centers, 0.5),
         lambda state: tile_features(state, centers, 0.5),
         lambda state: coarse_features(state, centers, 0.5),
         lambda state: aggregation_features(state, centers),
@@ -333,8 +333,14 @@ term = data["term"]
 n = s.shape[0]
 gamma = 0.99
 
+# needed for heatmaps
+s_idx = np.ravel_multi_index(s.T, (9, 9))
+unique_s_idx = np.unique(s_idx, return_index=True)[1]
+
 fig, axs = plt.subplots(1, 1)
-axs.tricontourf(s[:, 0], s[:, 1], V, levels=100)
+# surf = axs.tricontourf(s[:, 0], s[:, 1], V)
+surf = axs.imshow(V[unique_s_idx].reshape(9, 9))
+plt.colorbar(surf)
 plt.show()
 
 ### Old Params
@@ -351,25 +357,26 @@ plt.show()
 # offsets = [(-1, 3), (1, 3), (-1, -3), (1, 3), (2, 6), (-2, 6), (2, -6), (-2, -6), (3, 9), (-3, 9), (3, -9), (-3, -9)]
 
 
-max_iter = 20000
+# max_iter = 60000
+max_iter = 1
 alpha = 0.01
 thresh = 1e-8
 
-number_of_centers = 10
+number_of_centers = 20
 state_1_centers = np.linspace(0, 8, number_of_centers)
 state_2_centers = np.linspace(0, 8, number_of_centers)
 centers = (
     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
 )
 # offsets = [(-1, 3), (1, 3), (-1, -3), (1, 3), (2, 6), (-2, 6), (2, -6), (-2, -6), (3, 9), (-3, 9), (3, -9), (-3, -9)]
-
+# offsets = [(-1, 0), (0, -1), (1, 0), (0, 1), (-0.5, 0.5), (-0.5, -0.5), (0.5, 0.5), (0.5, -0.5)]
 
 # should try a non-uniform amount of offset
 
 # Pick one
 # name, get_phi = "Poly", lambda state : poly_features(state, ...)
-name, get_phi = "RBFs", lambda state : rbf_features(state, centers, 1.0)
-# name, get_phi = "Tiles", lambda state: tile_features(state, centers, 5)
+name, get_phi = "RBFs", lambda state : rbf_features(state, centers, 0.3)
+# name, get_phi = "Tiles", lambda state: tile_features(state, centers, 5, offsets)
 # name, get_phi = "Coarse", lambda state : coarse_features(state, ...)
 # name, get_phi = "Aggreg.", lambda state: aggregation_features(state, ...)
 
@@ -397,15 +404,11 @@ td_prediction = np.dot(phi, weights)
 
 print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
 fig, axs = plt.subplots(1, 2)
-axs[0].tricontourf(s[:, 0], s[:, 1], V, levels=100)
-axs[1].tricontourf(s[:, 0], s[:, 1], td_prediction, levels=100)
-axs[0].set_title("True Function")
-axs[1].set_title(f"Approximation with ??? (MSE {mse:.3f})")
+axs[0].imshow(V[unique_s_idx].reshape(9, 9))
+axs[1].imshow(td_prediction[unique_s_idx].reshape(9, 9))
+axs[0].set_title("V")
+axs[1].set_title(f"Approx. with ??? (MSE {mse:.3f})")
 plt.show()
-
-
-# TODO: remove
-exit()
 
 
 #################### PART 4
@@ -414,32 +417,44 @@ exit()
 
 # TODO: Loop over the actions because we can't update it all at once
 
-max_iter = 20
+max_iter = 20000
 alpha = 0.01
 thresh = 1e-8
+n_actions = 5
 
 phi = get_phi(s)
 phi_next = get_phi(s_next)
-weights = np.zeros(...)  # you have to change something here
+weights = np.zeros((phi.shape[-1], n_actions))  # you have to change something here
 pbar = tqdm(total=max_iter)
 for iter in range(max_iter):
     # do TD semi-gradient
-    td_error = ...
-    mse = ...  # prediction - Q
+    # td_error = ...
+    # mse = ...  # prediction - Q
+    # do TD semi-gradient
+    for action in range(n_actions):
+        action_indices = np.array(np.where(a == action)[0])
+        phi_actions = phi[action_indices, :]
+        phi_next_actions = phi_next[action_indices, :]
+        term_nums_actions = term_nums[action_indices]
+        td_error = r[action_indices] + (gamma * np.dot(phi_next_actions, weights[:, action]) * (1 - term_nums_actions)) - np.dot(phi_actions, weights[:, action])
+        weights[:, action] += np.mean(alpha * (td_error)[..., None] * phi_actions, axis=0)
+    # mse = ...  # prediction - V
+    mse = np.mean((np.dot(phi, weights) - Q) ** 2)
     pbar.set_description(f"TDE: {td_error}, MSE: {mse}")
     pbar.update()
     if mse < thresh:
         break
 
+print(Q[unique_s_idx].argmax(-1).reshape(9, 9))  # check optimal policy
+td_prediction = np.dot(phi, weights)
+
 print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
-fig, axs = plt.subplots(5, 2)
-for i in range(5):
-    axs[i][0].tricontourf(s[:, 0], s[:, 1], Q[:, i], levels=100)
-    axs[i][1].tricontourf(
-        s[:, 0], s[:, 1], ..., levels=100
-    )  # depends on how you implemented it
-    axs[i][0].set_title("True Function")
-    axs[i][1].set_title(f"Approximation with ??? (MSE {mse:.3f})")
+fig, axs = plt.subplots(2, n_actions)
+for i, j in zip(range(n_actions), ["LEFT", "DOWN", "RIGHT", "UP", "STAY"]):
+    axs[0][i].imshow(Q[unique_s_idx, i].reshape(9, 9))
+    axs[1][i].imshow(td_prediction[unique_s_idx, i].reshape(9, 9))
+    axs[0][i].set_title(f"Q {j}")
+    axs[1][i].set_title(f"Approx. with ??? (MSE {mse:.3f})")
 plt.show()
 
 
