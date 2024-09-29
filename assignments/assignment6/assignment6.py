@@ -113,8 +113,9 @@ def aggregation_features(state: np.array, centers: np.array) -> np.array:
         for j in range(centers.shape[0]):
             Z[i, j] = np.linalg.norm(state[i, :] - centers[j, :])
     output = np.zeros_like(Z)
-    output[np.arange(state.shape[0]), np.argmax(Z, axis=1)] = 1.0
+    output[np.arange(state.shape[0]), np.argmin(Z, axis=1)] = 1.0
     return output
+
 
 state_size = 2
 n_samples = 10
@@ -291,7 +292,7 @@ widths = 0.5
 for name, get_phi in zip(
     ["Poly", "RBFs", "Tiles", "Coarse", "Aggreg."],
     [
-        lambda state: poly_features(state, 30),
+        lambda state: poly_features(state, 3),
         lambda state: rbf_features(state, centers, 0.2),
         lambda state: tile_features(state, centers, widths),
         lambda state: coarse_features(state, centers, widths),
@@ -307,7 +308,10 @@ for name, get_phi in zip(
         mse = np.mean(test_mse)
         pbar.set_description(f"MSE: {mse}")
         pbar.update()
-        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi, axis=0)
+        norm_phi = np.linalg.norm(phi)
+        if norm_phi == 0:
+            norm_phi = 1
+        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi / norm_phi, axis=0)
         if mse < thresh:
             break
 
@@ -370,19 +374,10 @@ plt.show()
 # offsets = [(-1, 3), (1, 3), (-1, -3), (1, 3), (2, 6), (-2, 6), (2, -6), (-2, -6), (3, 9), (-3, 9), (3, -9), (-3, -9)]
 
 
-# max_iter = 60000
-max_iter = 100000
+max_iter = 60000
+# max_iter = 20000
 alpha = 0.1
 thresh = 1e-8
-#
-# number_of_centers = 20
-# state_1_centers = np.linspace(0, 8, number_of_centers)
-# state_2_centers = np.linspace(0, 8, number_of_centers)
-# centers = (
-#     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
-# )
-#
-# name, get_phi = "RBFs", lambda state : rbf_features(state, centers, 0.3)
 
 number_of_centers = 20
 state_1_centers = np.linspace(0, 8, number_of_centers)
@@ -390,8 +385,17 @@ state_2_centers = np.linspace(0, 8, number_of_centers)
 centers = (
     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
 )
-offsets = [(-.1, 0), (0, -.1), (.1, 0), (0, .1), (-0.05, 0), (0, -0.05), (0.05, 0), (0, 0.05)]
-name, get_phi = "Tiles", lambda state: tile_features(state, centers, 2, offsets)
+
+name, get_phi = "RBFs", lambda state : rbf_features(state, centers, 0.3)
+
+# number_of_centers = 10
+# state_1_centers = np.linspace(0, 8, number_of_centers)
+# state_2_centers = np.linspace(0, 8, number_of_centers)
+# centers = (
+#     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
+# )
+# offsets = [(-.1, 0), (0, -.1), (.1, 0), (0, .1), (-0.05, 0), (0, -0.05), (0.05, 0), (0, 0.05)]
+# name, get_phi = "Tiles", lambda state: tile_features(state, centers, 1, offsets)
 
 # should try a non-uniform amount of offset
 
@@ -411,10 +415,9 @@ normalized_phi = (phi - phi.min()) / (phi.max() - phi.min())
 weights = np.zeros(phi.shape[-1])
 pbar = tqdm(total=max_iter)
 for iter in range(max_iter):
-    # Code from above\
     # do TD semi-gradient
     td_error = r + (gamma * np.dot(phi_next, weights) * (1 - term_nums)) - np.dot(phi, weights)
-    weights += np.mean(alpha * (td_error)[..., None] * phi / np.linalg.norm(phi), axis=0)
+    weights += np.mean(alpha * (td_error)[..., None] * phi, axis=0)
     # mse = ...  # prediction - V
     mse = np.mean((np.dot(phi, weights) - V) ** 2)
     pbar.set_description(f"TDE: {td_error}, MSE: {mse}")
@@ -429,7 +432,7 @@ fig, axs = plt.subplots(1, 2)
 axs[0].imshow(V[unique_s_idx].reshape(9, 9))
 axs[1].imshow(td_prediction[unique_s_idx].reshape(9, 9))
 axs[0].set_title("V")
-axs[1].set_title(f"Approx. with ??? (MSE {mse:.3f})")
+axs[1].set_title(f"Approx. with RBFs (MSE {mse:.3f})")
 plt.show()
 
 
@@ -439,8 +442,8 @@ plt.show()
 
 # TODO: Loop over the actions because we can't update it all at once
 
-max_iter = 20000
-alpha = 0.01
+max_iter = 100000
+alpha = 0.1
 thresh = 1e-8
 n_actions = 5
 
