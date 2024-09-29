@@ -442,8 +442,18 @@ plt.show()
 
 # TODO: Loop over the actions because we can't update it all at once
 
-max_iter = 100000
-alpha = 0.1
+# I made an attempt :(
+# number_of_centers = 16
+# state_1_centers = np.linspace(0, 8, number_of_centers)
+# state_2_centers = np.linspace(0, 8, number_of_centers)
+# centers = (
+#     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
+# )
+# offsets = [(-.1, 0), (0, -.1), (.1, 0), (0, .1), (-0.05, 0), (0, -0.05), (0.05, 0), (0, 0.05)]
+# name, get_phi = "Tiles", lambda state: tile_features(state, centers, 4, offsets)
+
+max_iter = 1000
+alpha = 0.01
 thresh = 1e-8
 n_actions = 5
 
@@ -474,12 +484,13 @@ print(Q[unique_s_idx].argmax(-1).reshape(9, 9))  # check optimal policy
 td_prediction = np.dot(phi, weights)
 
 print(f"Iterations: {iter}, MSE: {mse}, N. of Features {len(weights)}")
-fig, axs = plt.subplots(2, n_actions)
+fig, axs = plt.subplots(2, n_actions, figsize=(15, 8))
 for i, j in zip(range(n_actions), ["LEFT", "DOWN", "RIGHT", "UP", "STAY"]):
     axs[0][i].imshow(Q[unique_s_idx, i].reshape(9, 9))
     axs[1][i].imshow(td_prediction[unique_s_idx, i].reshape(9, 9))
     axs[0][i].set_title(f"Q {j}")
-    axs[1][i].set_title(f"Approx. with ??? (MSE {mse:.3f})")
+    axs[1][i].set_title(f"Approx. with RBFs (MSE {mse:.3f})")
+plt.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.1, hspace=0.6, wspace=0.4)
 plt.show()
 
 
