@@ -154,7 +154,6 @@ def fqi(seed):
             idx_data = 0
 
         pbar.update(ep_steps)
-        print(ep_steps)
         if tot_steps >= max_steps:
             break
 

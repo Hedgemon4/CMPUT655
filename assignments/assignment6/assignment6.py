@@ -240,7 +240,7 @@ for name, get_phi in zip(
     # l1_norm_row = np.sum(np.abs(phi), axis=1, keepdims=True)
     # l1_norm_row[l1_norm_row == 0] = 1
     # normalized_phi = phi / l1_norm_row
-    
+
     for iter in range(max_iter):
         # do gradient descent
         test_mse = (y - np.dot(phi, weights)) ** 2
@@ -250,7 +250,9 @@ for name, get_phi in zip(
         norm_phi = np.linalg.norm(phi)
         if norm_phi == 0:
             norm_phi = 1
-        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi / norm_phi, axis=0)
+        weights += np.mean(
+            alpha * (y - np.dot(phi, weights))[..., None] * phi / norm_phi, axis=0
+        )
         if mse < thresh:
             break
 
@@ -311,7 +313,9 @@ for name, get_phi in zip(
         norm_phi = np.linalg.norm(phi)
         if norm_phi == 0:
             norm_phi = 1
-        weights += np.mean(alpha * (y - np.dot(phi, weights))[..., None] * phi / norm_phi, axis=0)
+        weights += np.mean(
+            alpha * (y - np.dot(phi, weights))[..., None] * phi / norm_phi, axis=0
+        )
         if mse < thresh:
             break
 
@@ -386,7 +390,7 @@ centers = (
     np.array(np.meshgrid(state_1_centers, state_2_centers)).reshape(state_size, -1).T
 )
 
-name, get_phi = "RBFs", lambda state : rbf_features(state, centers, 0.3)
+name, get_phi = "RBFs", lambda state: rbf_features(state, centers, 0.3)
 
 # number_of_centers = 10
 # state_1_centers = np.linspace(0, 8, number_of_centers)
@@ -416,7 +420,9 @@ weights = np.zeros(phi.shape[-1])
 pbar = tqdm(total=max_iter)
 for iter in range(max_iter):
     # do TD semi-gradient
-    td_error = r + (gamma * np.dot(phi_next, weights) * (1 - term_nums)) - np.dot(phi, weights)
+    td_error = (
+        r + (gamma * np.dot(phi_next, weights) * (1 - term_nums)) - np.dot(phi, weights)
+    )
     weights += np.mean(alpha * (td_error)[..., None] * phi, axis=0)
     # mse = ...  # prediction - V
     mse = np.mean((np.dot(phi, weights) - V) ** 2)
@@ -471,8 +477,18 @@ for iter in range(max_iter):
         phi_actions = phi[action_indices, :]
         phi_next_actions = phi_next[action_indices, :]
         term_nums_actions = term_nums[action_indices]
-        td_error = r[action_indices] + (gamma * np.dot(phi_next_actions, weights[:, action]) * (1 - term_nums_actions)) - np.dot(phi_actions, weights[:, action])
-        weights[:, action] += np.mean(alpha * (td_error)[..., None] * phi_actions, axis=0)
+        td_error = (
+            r[action_indices]
+            + (
+                gamma
+                * np.dot(phi_next_actions, weights[:, action])
+                * (1 - term_nums_actions)
+            )
+            - np.dot(phi_actions, weights[:, action])
+        )
+        weights[:, action] += np.mean(
+            alpha * (td_error)[..., None] * phi_actions, axis=0
+        )
     # mse = ...  # prediction - V
     mse = np.mean((np.dot(phi, weights) - Q) ** 2)
     pbar.set_description(f"TDE: {td_error}, MSE: {mse}")
