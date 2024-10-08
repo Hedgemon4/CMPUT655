@@ -52,7 +52,7 @@ def fqi(seed):
     tot_steps = 0
     weights = np.zeros((phi_dummy.shape[1], n_actions))
     exp_return = expected_return(env_eval, weights, gamma, episodes_eval)
-    abs_td_error = np.nan
+    abs_td_error = 0
     exp_return_history = np.zeros((max_steps))
     td_error_history = np.zeros((max_steps))
     pbar = tqdm(total=max_steps)
@@ -75,56 +75,58 @@ def fqi(seed):
             #           break if np.allclose(weights, weights_before_step, rtol=1e-5, atol=1e-5)
             #       break if np.allclose(weights, weights_before_fit, rtol=1e-5, atol=1e-5)
 
-            while idx_data < datasize:
-                phi = get_phi(state)
-                Q = np.dot(phi, weights).ravel()
-                action = eps_greedy_action(Q, eps)
-                state_next, reward, terminated, truncated, _ = env.step(action)
+            phi = get_phi(state)
+            Q = np.dot(phi, weights).ravel()
+            action = eps_greedy_action(Q, eps)
+            state_next, reward, terminated, truncated, _ = env.step(action)
 
-                # Storage here
-                data["state"][idx_data, :] = state
-                data["next_state"][idx_data, :] = state_next
-                data["reward"][idx_data] = reward
-                data["action"][idx_data] = action
-                data["terminated"][idx_data] = 1 if terminated else 0
+            # Storage here
+            data["state"][idx_data, :] = state
+            data["next_state"][idx_data, :] = state_next
+            data["reward"][idx_data] = reward
+            data["action"][idx_data] = action
+            data["terminated"][idx_data] = 1 if terminated else 0
 
-                # Update instead of at end
-                state = state_next
-                if terminated or truncated:
-                    state, _ = env.reset(seed=seed + tot_steps)
-                idx_data += 1
-                eps = max(eps - 1 / max_steps, 0.5)
+            # Update instead of at end
+            state = state_next
+            if terminated or truncated:
+                state, _ = env.reset(seed=seed + tot_steps)
+                done = True
+                ep_steps = 0
+            idx_data += 1
 
-            actions = data["action"]
-            states = data["state"]
-            next_states = data["next_state"]
-            rewards = data["reward"]
-            terminated = data["terminated"]
-            phi = get_phi(states)
-            phi_next = get_phi(next_states)
-            for x in range(fitting_iterations):
-                weights_before_fit = weights.copy()
-                td_target = rewards + gamma * (1 - terminated) * np.dot(phi_next, weights).max(-1)
-                for y in range(gradient_steps):
-                    weights_before_step = weights.copy()
-                    td_prediction = np.dot(phi, weights)
-                    abs_td_error = np.zeros(datasize)
-                    for act in range(n_actions):
-                        action_index = actions == act
-                        if not np.any(action_index):
-                            continue
-                        td_error_act = (td_target - td_prediction[:, act])
-                        abs_td_error[action_index] = np.abs(td_error_act[action_index])
-                        gradient = (
-                            td_target[action_index]
-                            - td_prediction[action_index, act]
-                        )[..., None] * phi[action_index]
-                        weights[:, act] += alpha * gradient.mean(0)
-                    if np.allclose(weights, weights_before_step, rtol=1e-5, atol=1e-5):
+            if idx_data >= datasize:
+                idx_data = 0
+                actions = data["action"]
+                states = data["state"]
+                next_states = data["next_state"]
+                rewards = data["reward"]
+                terminated = data["terminated"]
+                phi = get_phi(states)
+                phi_next = get_phi(next_states)
+                for x in range(fitting_iterations):
+                    weights_before_fit = weights.copy()
+                    td_target = rewards + gamma * (1 - terminated) * np.dot(phi_next, weights).max(-1)
+                    for y in range(gradient_steps):
+                        weights_before_step = weights.copy()
+                        td_prediction = np.dot(phi, weights)
+                        abs_td_error = np.zeros(datasize)
+                        for act in range(n_actions):
+                            action_index = actions == act
+                            if not np.any(action_index):
+                                continue
+                            td_error_act = (td_target - td_prediction[:, act])
+                            abs_td_error[action_index] = np.abs(td_error_act[action_index])
+                            gradient = (
+                                td_target[action_index]
+                                - td_prediction[action_index, act]
+                            )[..., None] * phi[action_index]
+                            weights[:, act] += alpha * gradient.mean(0)
+                        if np.allclose(weights, weights_before_step, rtol=1e-5, atol=1e-5):
+                            break
+                    abs_td_error = abs_td_error.mean()
+                    if np.allclose(weights, weights_before_fit, rtol=1e-5, atol=1e-5):
                         break
-                abs_td_error = abs_td_error.mean()
-                if np.allclose(weights, weights_before_fit, rtol=1e-5, atol=1e-5):
-                    break
 
             if tot_steps % log_frequency == 0:
                 exp_return = expected_return(env_eval, weights, gamma, episodes_eval)
@@ -135,11 +137,9 @@ def fqi(seed):
             td_error_history[tot_steps] = abs_td_error
 
             tot_steps += 1
-            ep_steps += 1
             eps = max(eps - 1.0 / max_steps, 0.5)
-            idx_data = 0
+            pbar.update(tot_steps)
 
-        pbar.update(ep_steps)
         if tot_steps >= max_steps:
             break
 
@@ -193,7 +193,7 @@ gamma = 0.99
 alpha = 0.05
 max_steps = 10000
 log_frequency = 100
-n_seeds = 3
+n_seeds = 10
 
 results_ret = np.zeros(
     (
