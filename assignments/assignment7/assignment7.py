@@ -137,6 +137,7 @@ def fqi(seed):
             tot_steps += 1
             ep_steps += 1
             eps = max(eps - 1.0 / max_steps, 0.5)
+            idx_data = 0
 
         pbar.update(ep_steps)
         if tot_steps >= max_steps:
@@ -192,7 +193,7 @@ gamma = 0.99
 alpha = 0.05
 max_steps = 10000
 log_frequency = 100
-n_seeds = 10
+n_seeds = 3
 
 results_ret = np.zeros(
     (
