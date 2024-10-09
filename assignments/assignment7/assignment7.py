@@ -106,7 +106,9 @@ def fqi(seed):
                 phi_next = get_phi(next_states)
                 for x in range(fitting_iterations):
                     weights_before_fit = weights.copy()
-                    td_target = rewards + gamma * (1 - terminated) * np.dot(phi_next, weights).max(-1)
+                    td_target = rewards + gamma * (1 - terminated) * np.dot(
+                        phi_next, weights
+                    ).max(-1)
                     for y in range(gradient_steps):
                         weights_before_step = weights.copy()
                         td_prediction = np.dot(phi, weights)
@@ -115,14 +117,18 @@ def fqi(seed):
                             action_index = actions == act
                             if not np.any(action_index):
                                 continue
-                            td_error_act = (td_target - td_prediction[:, act])
-                            abs_td_error[action_index] = np.abs(td_error_act[action_index])
+                            td_error_act = td_target - td_prediction[:, act]
+                            abs_td_error[action_index] = np.abs(
+                                td_error_act[action_index]
+                            )
                             gradient = (
                                 td_target[action_index]
                                 - td_prediction[action_index, act]
                             )[..., None] * phi[action_index]
                             weights[:, act] += alpha * gradient.mean(0)
-                        if np.allclose(weights, weights_before_step, rtol=1e-5, atol=1e-5):
+                        if np.allclose(
+                            weights, weights_before_step, rtol=1e-5, atol=1e-5
+                        ):
                             break
                     abs_td_error = abs_td_error.mean()
                     if np.allclose(weights, weights_before_fit, rtol=1e-5, atol=1e-5):
