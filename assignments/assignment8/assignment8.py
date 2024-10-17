@@ -1,10 +1,13 @@
 import gymnasium
+from fontTools.misc.bezierTools import epsilon
+
 import gym_gridworlds
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 np.set_printoptions(precision=3, suppress=True)
+USE_GRID_WORLD = False
 
 # https://en.wikipedia.org/wiki/Pairing_function
 def cantor_pairing(x, y):
@@ -13,7 +16,7 @@ def cantor_pairing(x, y):
 def rbf_features(x: np.array, c: np.array, s: np.array) -> np.array:
     return np.exp(-(((x[:, None] - c[None]) / s[None])**2).sum(-1) / 2.0)
 
-def expected_return(env, weights, gamma, episodes=100):
+def expected_return(env, weights, gamma, episodes=100, eps=1.0):
     G = np.zeros(episodes)
     for e in range(episodes):
         s, _ = env.reset(seed=e)
@@ -21,10 +24,14 @@ def expected_return(env, weights, gamma, episodes=100):
         t = 0
         while not done:
             phi = get_phi(s)
-            a = np.dot(phi, weights)
-            a_clip = np.clip(a, env.action_space.low, env.action_space.high)  # this is for the Pendulum
-            # a = softmax_action(phi, weights, eps)  # this is for the Gridworld
-            s_next, r, terminated, truncated, _ = env.step(a_clip)  # replace with a for Gridworld
+            if USE_GRID_WORLD:
+                a = softmax_action(phi, weights, eps)
+                s_next, r, terminated, truncated, _ = env.step(a)
+            else:
+                a = np.dot(phi, weights)
+                a_clip = np.clip(a, env.action_space.low, env.action_space.high)  # this is for the Pendulum
+                # a = softmax_action(phi, weights, eps)  # this is for the Gridworld
+                s_next, r, terminated, truncated, _ = env.step(a_clip)  # replace with a for Gridworld
             done = terminated or truncated
             G[e] += gamma**t * r
             s = s_next
@@ -43,10 +50,13 @@ def collect_data(env, weights, sigma, n_episodes):
         done = False
         while not done:
             phi = get_phi(s)
-            a = gaussian_action(phi, weights, sigma)
-            # a = softmax_action(phi, weights, eps)
-            a_clip = np.clip(a, env.action_space.low, env.action_space.high)  # only for Gaussian policy
-            s_next, r, terminated, truncated, _ = env.step(a_clip)
+            if USE_GRID_WORLD:
+                a = softmax_action(phi, weights, 1.0)
+                s_next, r, terminated, truncated, _ = env.step(a)
+            else:
+                a = gaussian_action(phi, weights, sigma)
+                a_clip = np.clip(a, env.action_space.low, env.action_space.high)  # only for Gaussian policy
+                s_next, r, terminated, truncated, _ = env.step(a_clip)
             done = terminated or truncated
             data["phi"].append(phi)
             data["a"].append(a)
@@ -78,25 +88,32 @@ def softmax_action(phi, weights, eps):
 
 def dlog_softmax_probs(phi, weights, eps, act):
     # implement log-derivative of pi
-    print("Not implemented yet")
+    phi_sa = phi[..., None].repeat(n_actions, axis=-1)
+    # Make mask
+    mask = np.zeros((act.shape[0], phi.shape[1], n_actions))
+    for i, num in enumerate(act[:, 0]):
+        mask[i][:, num] = 1
+    probs = softmax_probs(phi, weights, eps)
+    return phi_sa * mask - phi_sa * probs[:, None]
 
 def gaussian_action(phi: np.array, weights: np.array, sigma: np.array):
     mu = np.dot(phi, weights)
     return np.random.normal(mu, sigma**2)
 
+
 def dlog_gaussian_probs(phi: np.array,  weights: np.array,  sigma: np.array, action: np.array):
     # implement log-derivative of pi with respect to the mean only
     # diag_covar_inverse = np.linalg.inv(np.square(np.diag(np.full(action.shape[0], sigma))))
-    diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
-    return diag_covar_inverse * (action - np.dot(phi, weights)) * phi
+    # diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
+    return  ((1 / sigma) ** 2 ) * (action - np.dot(phi, weights)) * phi
 
 def reinforce(baseline="none"):
-    weights = np.zeros((phi_dummy.shape[1], action_dim))
+    weights = np.zeros((phi_dummy.shape[1], n_actions if USE_GRID_WORLD else action_dim))
     sigma = 1.0  # for Gaussian
     eps = 1.0  # softmax temperature, DO NOT DECAY
     tot_steps = 0
     exp_return_history = np.zeros(max_steps)
-    exp_return = expected_return(env_eval, weights, gamma, episodes_eval)
+    exp_return = expected_return(env_eval, weights, gamma, episodes_eval, eps)
     pbar = tqdm(total=max_steps)
 
     while tot_steps < max_steps:
@@ -122,18 +139,19 @@ def reinforce(baseline="none"):
             if done[i, 0]:
                 value = 0
 
-        gradient = dlog_gaussian_probs(phi, weights, sigma, actions)
-        weights += alpha * gradient.mean(0)
-        # gradient = np.zeros((T, len(weights)))
-        # for t in range(T):
-        #     gradient[t] = dlog_gaussian_probs(phi, weights, sigma, actions[t]) * G[t]
-        # weights += alpha * gradient.mean(0)
+        if USE_GRID_WORLD:
+            dlog = dlog_softmax_probs(phi, weights, eps, actions)
+            gradient = dlog * G[..., None, None]
+        else:
+            dlog = dlog_gaussian_probs(phi, weights, sigma, actions)
+            gradient = dlog * G[..., None]
 
-        # for t in range(T):
+        dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
+        weights += alpha * gradient.mean(0)[..., None]
 
         exp_return_history[tot_steps : tot_steps + T] = exp_return
         tot_steps += T
-        exp_return = expected_return(env_eval, weights, gamma, episodes_eval)
+        exp_return = expected_return(env_eval, weights, gamma, episodes_eval, eps)
         sigma = max(sigma - T / max_steps, 0.1)
 
         pbar.set_description(
@@ -167,25 +185,23 @@ def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
     error = 1.96 * error / np.sqrt(data.shape[0])
     ax.fill_between(x, y - error, y + error, alpha=0.2, linewidth=0.0, color=line.get_color())
 
-
-env_id = "Pendulum-v1"
-env = gymnasium.make(env_id)
-env_eval = gymnasium.make(env_id)
-episodes_eval = 100
-# you'll solve the Pendulum when the empirical expected return is higher than -150
-# but it can get even higher, eg -120
-state_dim = env.observation_space.shape[0]
-action_dim = env.action_space.shape[0]
-n_actions = 0
-
-# UNCOMMENT TO SOLVE THE GRIDWORLD
-# env_id = "Gym-Gridworlds/Penalty-3x3-v0"
-# env = gymnasium.make(env_id, coordinate_observation=True, distance_reward=True)
-# env_eval = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10)  # 10 steps only for faster eval
-# episodes_eval = 1  # max expected return will be 0.941
-# state_dim = env.observation_space.shape[0]
-# n_actions = env.action_space.n
-
+if not USE_GRID_WORLD:
+    env_id = "Pendulum-v1"
+    env = gymnasium.make(env_id)
+    env_eval = gymnasium.make(env_id)
+    episodes_eval = 100
+    # you'll solve the Pendulum when the empirical expected return is higher than -150
+    # but it can get even higher, eg -120
+    state_dim = env.observation_space.shape[0]
+    action_dim = env.action_space.shape[0]
+    n_actions = 0
+else:
+    env_id = "Gym-Gridworlds/Penalty-3x3-v0"
+    env = gymnasium.make(env_id, coordinate_observation=True, distance_reward=True)
+    env_eval = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10)  # 10 steps only for faster eval
+    episodes_eval = 1  # max expected return will be 0.941
+    state_dim = env.observation_space.shape[0]
+    n_actions = env.action_space.n
 
 # automatically set centers and sigmas
 n_centers = [7] * state_dim
