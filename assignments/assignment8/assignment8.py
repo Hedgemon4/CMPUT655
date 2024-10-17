@@ -86,7 +86,9 @@ def gaussian_action(phi: np.array, weights: np.array, sigma: np.array):
 
 def dlog_gaussian_probs(phi: np.array,  weights: np.array,  sigma: np.array, action: np.array):
     # implement log-derivative of pi with respect to the mean only
-    print("This is also not yet implemented")
+    # diag_covar_inverse = np.linalg.inv(np.square(np.diag(np.full(action.shape[0], sigma))))
+    diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
+    return diag_covar_inverse * (action - np.dot(phi, weights)) * phi
 
 def reinforce(baseline="none"):
     weights = np.zeros((phi_dummy.shape[1], action_dim))
@@ -106,8 +108,29 @@ def reinforce(baseline="none"):
 
         # collect data
         data = collect_data(env, weights, sigma, episodes_eval)
+        phi = np.vstack(data["phi"])
+        reward = np.vstack(data["r"])
+        actions = np.vstack(data["a"])
+        done = np.vstack(data["done"])
 
-        T = ... # steps taken while collecting data
+        T = reward.shape[0]
+        G = np.zeros(T)
+        value = 0
+        for i in reversed(range(T)):
+            value = gamma * value + reward[i, 0]
+            G[i] = value
+            if done[i, 0]:
+                value = 0
+
+        gradient = dlog_gaussian_probs(phi, weights, sigma, actions)
+        weights += alpha * gradient.mean(0)
+        # gradient = np.zeros((T, len(weights)))
+        # for t in range(T):
+        #     gradient[t] = dlog_gaussian_probs(phi, weights, sigma, actions[t]) * G[t]
+        # weights += alpha * gradient.mean(0)
+
+        # for t in range(T):
+
         exp_return_history[tot_steps : tot_steps + T] = exp_return
         tot_steps += T
         exp_return = expected_return(env_eval, weights, gamma, episodes_eval)
