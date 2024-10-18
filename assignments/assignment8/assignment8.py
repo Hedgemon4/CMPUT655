@@ -8,20 +8,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+
 class Baseline(Enum):
     NONE = "none"
     AVERAGE = "average"
     OPTIMAL = "optimal"
 
+
 np.set_printoptions(precision=3, suppress=True)
 USE_GRID_WORLD = False
+
 
 # https://en.wikipedia.org/wiki/Pairing_function
 def cantor_pairing(x, y):
     return int(0.5 * (x + y) * (x + y + 1) + y)
 
+
 def rbf_features(x: np.array, c: np.array, s: np.array) -> np.array:
-    return np.exp(-(((x[:, None] - c[None]) / s[None])**2).sum(-1) / 2.0)
+    return np.exp(-(((x[:, None] - c[None]) / s[None]) ** 2).sum(-1) / 2.0)
+
 
 def expected_return(env, weights, gamma, episodes=100, eps=1.0):
     G = np.zeros(episodes)
@@ -36,14 +41,19 @@ def expected_return(env, weights, gamma, episodes=100, eps=1.0):
                 s_next, r, terminated, truncated, _ = env.step(a)
             else:
                 a = np.dot(phi, weights)
-                a_clip = np.clip(a, env.action_space.low, env.action_space.high)  # this is for the Pendulum
+                a_clip = np.clip(
+                    a, env.action_space.low, env.action_space.high
+                )  # this is for the Pendulum
                 # a = softmax_action(phi, weights, eps)  # this is for the Gridworld
-                s_next, r, terminated, truncated, _ = env.step(a_clip)  # replace with a for Gridworld
+                s_next, r, terminated, truncated, _ = env.step(
+                    a_clip
+                )  # replace with a for Gridworld
             done = terminated or truncated
             G[e] += gamma**t * r
             s = s_next
             t += 1
     return G.mean()
+
 
 def collect_data(env, weights, sigma, n_episodes):
     data = dict()
@@ -62,7 +72,9 @@ def collect_data(env, weights, sigma, n_episodes):
                 s_next, r, terminated, truncated, _ = env.step(a)
             else:
                 a = gaussian_action(phi, weights, sigma)
-                a_clip = np.clip(a, env.action_space.low, env.action_space.high)  # only for Gaussian policy
+                a_clip = np.clip(
+                    a, env.action_space.low, env.action_space.high
+                )  # only for Gaussian policy
                 s_next, r, terminated, truncated, _ = env.step(a_clip)
             done = terminated or truncated
             data["phi"].append(phi)
@@ -71,6 +83,7 @@ def collect_data(env, weights, sigma, n_episodes):
             data["done"].append(terminated or truncated)
             s = s_next
     return data
+
 
 def eps_greedy_action(phi, weights, eps):
     if np.random.rand() < eps:
@@ -81,6 +94,7 @@ def eps_greedy_action(phi, weights, eps):
         i = np.random.choice(range(best.shape[0]))
         return best[i][0]
 
+
 def softmax_probs(phi, weights, eps):
     q = np.dot(phi, weights)
     # this is a trick to make it more stable
@@ -89,34 +103,43 @@ def softmax_probs(phi, weights, eps):
     probs = q_exp / q_exp.sum(-1, keepdims=True)
     return probs
 
+
 def softmax_action(phi, weights, eps):
     probs = softmax_probs(phi, weights, eps)
     return np.random.choice(weights.shape[1], p=probs.ravel())
+
 
 def dlog_softmax_probs(phi, weights, eps, act):
     # implement log-derivative of pi
     phi_sa = phi[..., None].repeat(n_actions, axis=-1)
     # Make mask
+    # TODO: How to make this mask with a loop instead
     mask = np.zeros((act.shape[0], phi.shape[1], n_actions))
     for i, num in enumerate(act[:, 0]):
         mask[i][:, num] = 1
     probs = softmax_probs(phi, weights, eps)
     return phi_sa * mask - phi_sa * probs[:, None]
 
+
 def gaussian_action(phi: np.array, weights: np.array, sigma: np.array):
     mu = np.dot(phi, weights)
     return np.random.normal(mu, sigma**2)
 
 
-def dlog_gaussian_probs(phi: np.array,  weights: np.array,  sigma: np.array, action: np.array):
+def dlog_gaussian_probs(
+    phi: np.array, weights: np.array, sigma: np.array, action: np.array
+):
     # implement log-derivative of pi with respect to the mean only
     # diag_covar_inverse = np.linalg.inv(np.square(np.diag(np.full(action.shape[0], sigma))))
     # diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
-    return  ((1 / sigma) ** 2 ) * (action - np.dot(phi, weights)) * phi
+    return ((1 / sigma) ** 2) * (action - np.dot(phi, weights)) * phi
+
 
 def reinforce(baseline=Baseline.NONE):
-    weights = np.zeros((phi_dummy.shape[1], n_actions if USE_GRID_WORLD else action_dim))
-    sigma = 1.0  # for Gaussian
+    weights = np.zeros(
+        (phi_dummy.shape[1], n_actions if USE_GRID_WORLD else action_dim)
+    )
+    sigma = 2.0  # for Gaussian
     eps = 1.0  # softmax temperature, DO NOT DECAY
     tot_steps = 0
     exp_return_history = np.zeros(max_steps)
@@ -153,9 +176,12 @@ def reinforce(baseline=Baseline.NONE):
 
         # dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
         B = 0
+        print("none")
         if baseline == Baseline.AVERAGE:
+            print("average")
             B = G.mean()
         if baseline == Baseline.OPTIMAL:
+            print("optimal")
             B = (G[..., None, None] * np.square(dlog)).mean() / (np.square(dlog).mean())
 
         delta = G[..., None, None] - B
@@ -167,13 +193,12 @@ def reinforce(baseline=Baseline.NONE):
         exp_return = expected_return(env_eval, weights, gamma, episodes_eval, eps)
         sigma = max(sigma - T / max_steps, 0.1)
 
-        pbar.set_description(
-            f"G: {exp_return:.3f}"
-        )
+        pbar.set_description(f"G: {exp_return:.3f}")
         pbar.update(T)
 
     pbar.close()
     return exp_return_history
+
 
 # https://stackoverflow.com/a/63458548/754136
 def smooth(arr, span):
@@ -183,6 +208,7 @@ def smooth(arr, span):
         re[i] = np.average(arr[: i + span])
         re[-i] = np.average(arr[-i - span :])
     return re
+
 
 def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
     y = np.nanmean(data, 0)
@@ -195,7 +221,10 @@ def error_shade_plot(ax, data, stepsize, smoothing_window=1, **kwargs):
     if smoothing_window > 1:
         error = smooth(error, smoothing_window)
     error = 1.96 * error / np.sqrt(data.shape[0])
-    ax.fill_between(x, y - error, y + error, alpha=0.2, linewidth=0.0, color=line.get_color())
+    ax.fill_between(
+        x, y - error, y + error, alpha=0.2, linewidth=0.0, color=line.get_color()
+    )
+
 
 if not USE_GRID_WORLD:
     env_id = "Pendulum-v1"
@@ -209,8 +238,10 @@ if not USE_GRID_WORLD:
     n_actions = 0
 else:
     env_id = "Gym-Gridworlds/Penalty-3x3-v0"
-    env = gymnasium.make(env_id, coordinate_observation=True, distance_reward=True)
-    env_eval = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10)  # 10 steps only for faster eval
+    env = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10000)
+    env_eval = gymnasium.make(
+        env_id, coordinate_observation=True, max_episode_steps=10
+    )  # 10 steps only for faster eval
     episodes_eval = 1  # max expected return will be 0.941
     state_dim = env.observation_space.shape[0]
     n_actions = env.action_space.n
@@ -219,18 +250,28 @@ else:
 n_centers = [7] * state_dim
 state_low = env.observation_space.low
 state_high = env.observation_space.high
-centers = np.array(
-    np.meshgrid(*[
-        np.linspace(
-            state_low[i] - (state_high[i] - state_low[i]) / n_centers[i] * 0.1,
-            state_high[i] + (state_high[i] - state_low[i]) / n_centers[i] * 0.1,
-            n_centers[i],
+centers = (
+    np.array(
+        np.meshgrid(
+            *[
+                np.linspace(
+                    state_low[i] - (state_high[i] - state_low[i]) / n_centers[i] * 0.1,
+                    state_high[i] + (state_high[i] - state_low[i]) / n_centers[i] * 0.1,
+                    n_centers[i],
+                )
+                for i in range(state_dim)
+            ]
         )
-        for i in range(state_dim)
-    ])
-).reshape(state_dim, -1).T
-sigmas = (state_high - state_low) / np.asarray(n_centers) * 0.75 + 1e-8  # change sigmas for more/less generalization
-get_phi = lambda state : rbf_features(state.reshape(-1, state_dim), centers, sigmas)  # reshape because feature functions expect shape (N, S)
+    )
+    .reshape(state_dim, -1)
+    .T
+)
+sigmas = (state_high - state_low) / np.asarray(
+    n_centers
+) * 0.75 + 1e-8  # change sigmas for more/less generalization
+get_phi = lambda state: rbf_features(
+    state.reshape(-1, state_dim), centers, sigmas
+)  # reshape because feature functions expect shape (N, S)
 phi_dummy = get_phi(env.reset()[0])  # to get the number of features
 
 # hyperparameters
@@ -238,14 +279,16 @@ gamma = 0.99
 alpha = 0.1
 episodes_per_update = 10
 max_steps = 1000000  # 100000 for the Gridworld
-# TODO: Revert
-# baselines = [Baseline.NONE, Baseline.AVERAGE, Baseline.OPTIMAL]
-n_seeds = 10
-results_exp_ret = np.zeros((
-    len(baselines),
-    n_seeds,
-    max_steps,
-))
+baselines = [Baseline.NONE, Baseline.AVERAGE, Baseline.OPTIMAL]
+# TODO: Use 10 seeds
+n_seeds = 3
+results_exp_ret = np.zeros(
+    (
+        len(baselines),
+        n_seeds,
+        max_steps,
+    )
+)
 
 fig, axs = plt.subplots(1, 1)
 axs.set_prop_cycle(color=["red", "green", "blue"])
