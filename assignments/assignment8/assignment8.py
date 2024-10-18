@@ -132,7 +132,7 @@ def dlog_gaussian_probs(
     # implement log-derivative of pi with respect to the mean only
     # diag_covar_inverse = np.linalg.inv(np.square(np.diag(np.full(action.shape[0], sigma))))
     # diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
-    return ((1 / sigma) ** 2) * (action - np.dot(phi, weights)) * phi
+    return ((1 / sigma) ** 2) * (action - np.dot(phi, weights))[:, None] * phi[..., None]
 
 
 def reinforce(baseline=Baseline.NONE):
@@ -154,34 +154,34 @@ def reinforce(baseline=Baseline.NONE):
         # update weights
 
         # collect data
-        data = collect_data(env, weights, sigma, episodes_eval)
+        data = collect_data(env, weights, sigma, episodes_per_update)
         phi = np.vstack(data["phi"])
         reward = np.vstack(data["r"])
         actions = np.vstack(data["a"])
         done = np.vstack(data["done"])
 
         T = reward.shape[0]
-        G = np.zeros(T)
+        G = np.zeros((T, 1, 1))
         value = 0
         for i in reversed(range(T)):
-            value = gamma * value + reward[i, 0]
-            G[i] = value
             if done[i, 0]:
                 value = 0
+            value = gamma * value + reward[i, 0]
+            G[i] = value
 
         if USE_GRID_WORLD:
             dlog = dlog_softmax_probs(phi, weights, eps, actions)
         else:
-            dlog = dlog_gaussian_probs(phi, weights, sigma, actions)[..., None]
+            dlog = dlog_gaussian_probs(phi, weights, sigma, actions)
 
         # dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
         B = 0
         if baseline == Baseline.AVERAGE:
             B = G.mean()
-        if baseline == Baseline.OPTIMAL:
+        elif baseline == Baseline.OPTIMAL:
             B = (G[..., None, None] * np.square(dlog)).mean() / (np.square(dlog).mean())
 
-        delta = G[..., None, None] - B
+        delta = G - B
         gradient = dlog * delta
         weights += alpha * gradient.mean(0)
 
@@ -275,10 +275,9 @@ phi_dummy = get_phi(env.reset()[0])  # to get the number of features
 gamma = 0.99
 alpha = 0.1
 episodes_per_update = 10
-max_steps = 1000000  # 100000 for the Gridworld
+max_steps = 100000 if USE_GRID_WORLD else 1000000
 baselines = [Baseline.NONE, Baseline.AVERAGE, Baseline.OPTIMAL]
-# TODO: Use 10 seeds
-n_seeds = 3
+n_seeds = 10
 results_exp_ret = np.zeros(
     (
         len(baselines),
