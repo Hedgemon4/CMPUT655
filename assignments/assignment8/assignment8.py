@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 class Baseline(Enum):
-    NONE = 0
-    AVERAGE = 1
-    OPTIMAL = 2
+    NONE = "none"
+    AVERAGE = "average"
+    OPTIMAL = "optimal"
 
 np.set_printoptions(precision=3, suppress=True)
 USE_GRID_WORLD = False
@@ -148,12 +148,18 @@ def reinforce(baseline=Baseline.NONE):
 
         if USE_GRID_WORLD:
             dlog = dlog_softmax_probs(phi, weights, eps, actions)
-            gradient = dlog * G[..., None, None]
         else:
-            dlog = dlog_gaussian_probs(phi, weights, sigma, actions)
-            gradient = dlog[..., None] * G[..., None, None]
+            dlog = dlog_gaussian_probs(phi, weights, sigma, actions)[..., None]
 
         # dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
+        B = 0
+        if baseline == Baseline.AVERAGE:
+            B = G.mean()
+        if baseline == Baseline.OPTIMAL:
+            B = (G[..., None, None] * np.square(dlog)).mean() / (np.square(dlog).mean())
+
+        delta = G[..., None, None] - B
+        gradient = dlog * delta
         weights += alpha * gradient.mean(0)
 
         exp_return_history[tot_steps : tot_steps + T] = exp_return
@@ -168,7 +174,6 @@ def reinforce(baseline=Baseline.NONE):
 
     pbar.close()
     return exp_return_history
-
 
 # https://stackoverflow.com/a/63458548/754136
 def smooth(arr, span):
@@ -233,7 +238,8 @@ gamma = 0.99
 alpha = 0.1
 episodes_per_update = 10
 max_steps = 1000000  # 100000 for the Gridworld
-baselines = ["none", "mean_return", "optimal"]
+# TODO: Revert
+# baselines = [Baseline.NONE, Baseline.AVERAGE, Baseline.OPTIMAL]
 n_seeds = 10
 results_exp_ret = np.zeros((
     len(baselines),
@@ -251,12 +257,12 @@ for i, baseline in enumerate(baselines):
         np.random.seed(seed)
         exp_return_history = reinforce(baseline)
         results_exp_ret[i, seed] = exp_return_history
-        print(baseline, seed)
+        print(baseline.value, seed)
 
     plot_args = dict(
         stepsize=1,
         smoothing_window=20,
-        label=baseline,
+        label=baseline.value,
     )
     error_shade_plot(
         axs,
