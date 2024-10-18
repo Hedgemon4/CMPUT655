@@ -176,12 +176,9 @@ def reinforce(baseline=Baseline.NONE):
 
         # dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
         B = 0
-        print("none")
         if baseline == Baseline.AVERAGE:
-            print("average")
             B = G.mean()
         if baseline == Baseline.OPTIMAL:
-            print("optimal")
             B = (G[..., None, None] * np.square(dlog)).mean() / (np.square(dlog).mean())
 
         delta = G[..., None, None] - B
