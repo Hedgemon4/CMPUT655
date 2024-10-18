@@ -1,3 +1,5 @@
+from enum import Enum
+
 import gymnasium
 from fontTools.misc.bezierTools import epsilon
 
@@ -5,6 +7,11 @@ import gym_gridworlds
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+
+class Baseline(Enum):
+    NONE = 0
+    AVERAGE = 1
+    OPTIMAL = 2
 
 np.set_printoptions(precision=3, suppress=True)
 USE_GRID_WORLD = False
@@ -107,7 +114,7 @@ def dlog_gaussian_probs(phi: np.array,  weights: np.array,  sigma: np.array, act
     # diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
     return  ((1 / sigma) ** 2 ) * (action - np.dot(phi, weights)) * phi
 
-def reinforce(baseline="none"):
+def reinforce(baseline=Baseline.NONE):
     weights = np.zeros((phi_dummy.shape[1], n_actions if USE_GRID_WORLD else action_dim))
     sigma = 1.0  # for Gaussian
     eps = 1.0  # softmax temperature, DO NOT DECAY
@@ -144,10 +151,10 @@ def reinforce(baseline="none"):
             gradient = dlog * G[..., None, None]
         else:
             dlog = dlog_gaussian_probs(phi, weights, sigma, actions)
-            gradient = dlog * G[..., None]
+            gradient = dlog[..., None] * G[..., None, None]
 
-        dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
-        weights += alpha * gradient.mean(0)[..., None]
+        # dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
+        weights += alpha * gradient.mean(0)
 
         exp_return_history[tot_steps : tot_steps + T] = exp_return
         tot_steps += T
