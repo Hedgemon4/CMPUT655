@@ -26,6 +26,7 @@ def dlog_softmax_probs(phi, weights, eps, act):
     # implement log-derivative of pi
     phi_sa = phi[..., None].repeat(n_actions, axis=-1)
     # Make mask
+    # TODO: How to make this mask with a loop instead
     mask = np.zeros((act.shape[0], phi.shape[1], n_actions))
     for i, num in enumerate(act[:, 0]):
         mask[i][:, num] = 1

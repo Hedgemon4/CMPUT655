@@ -37,7 +37,7 @@ def expected_return(env, weights, gamma, episodes=100, eps=1.0):
         while not done:
             phi = get_phi(s)
             if USE_GRID_WORLD:
-                a = softmax_action(phi, weights, eps)
+                a = eps_greedy_action(phi, weights, 0)
                 s_next, r, terminated, truncated, _ = env.step(a)
             else:
                 a = np.dot(phi, weights)
@@ -174,12 +174,11 @@ def reinforce(baseline=Baseline.NONE):
         else:
             dlog = dlog_gaussian_probs(phi, weights, sigma, actions)
 
-        # dlog = dlog_softmax_probs(phi, weights, eps, actions) if USE_GRID_WORLD else dlog_gaussian_probs(phi, weights, sigma, actions)
         B = 0
         if baseline == Baseline.AVERAGE:
             B = G.mean()
         elif baseline == Baseline.OPTIMAL:
-            B = (G[..., None, None] * np.square(dlog)).mean() / (np.square(dlog).mean())
+            B = (G * np.square(dlog)).mean(0) / (np.square(dlog).mean(0))
 
         delta = G - B
         gradient = dlog * delta
@@ -236,9 +235,7 @@ if not USE_GRID_WORLD:
 else:
     env_id = "Gym-Gridworlds/Penalty-3x3-v0"
     env = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10000)
-    env_eval = gymnasium.make(
-        env_id, coordinate_observation=True, max_episode_steps=10
-    )  # 10 steps only for faster eval
+    env_eval = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10)  # 10 steps only for faster eval
     episodes_eval = 1  # max expected return will be 0.941
     state_dim = env.observation_space.shape[0]
     n_actions = env.action_space.n
