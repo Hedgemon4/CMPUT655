@@ -1,7 +1,6 @@
 from enum import Enum
 
 import gymnasium
-from fontTools.misc.bezierTools import epsilon
 
 import gym_gridworlds
 import numpy as np
@@ -132,7 +131,9 @@ def dlog_gaussian_probs(
     # implement log-derivative of pi with respect to the mean only
     # diag_covar_inverse = np.linalg.inv(np.square(np.diag(np.full(action.shape[0], sigma))))
     # diag_covar_inverse = np.diag(np.full(action.shape[0], (1 / sigma) ** 2))
-    return ((1 / sigma) ** 2) * (action - np.dot(phi, weights))[:, None] * phi[..., None]
+    return (
+        ((1 / sigma) ** 2) * (action - np.dot(phi, weights))[:, None] * phi[..., None]
+    )
 
 
 def reinforce(baseline=Baseline.NONE):
@@ -235,7 +236,9 @@ if not USE_GRID_WORLD:
 else:
     env_id = "Gym-Gridworlds/Penalty-3x3-v0"
     env = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10000)
-    env_eval = gymnasium.make(env_id, coordinate_observation=True, max_episode_steps=10)  # 10 steps only for faster eval
+    env_eval = gymnasium.make(
+        env_id, coordinate_observation=True, max_episode_steps=10
+    )  # 10 steps only for faster eval
     episodes_eval = 1  # max expected return will be 0.941
     state_dim = env.observation_space.shape[0]
     n_actions = env.action_space.n
